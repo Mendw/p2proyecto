@@ -1,0 +1,24 @@
+{
+  "name": "p2proyecto",
+  "version": "0.0.1",
+  "description": "Segundo proyecto de Sistemas Distribuidos",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mendw/p2proyecto.git"
+  },
+  "keywords": [
+    "sistemas",
+    "distribuidos",
+    "p2p"
+  ],
+  "author": "Jose Mendoza - Alfonso Gonzalez",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Mendw/p2proyecto/issues"
+  },
+  "homepage": "https://github.com/Mendw/p2proyecto#readme"
+}
