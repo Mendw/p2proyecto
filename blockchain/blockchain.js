@@ -148,6 +148,7 @@ class Blockchain {
 }
 
 function addPeer(address, port) {
+    console.log(`Trying to add peer`)
     let peer = {
         address: address,
         port: port,
@@ -195,6 +196,7 @@ function parseWhisper(whisper) {
 }
 
 function connectSocket(address, port) {
+
     let socket = client_io.connect(`http://${address}:${port}`)
     socket.on('whisper', (whisper) => {
         parseWhisper(whisper)
@@ -218,7 +220,7 @@ function initialize(localIp, localPort) {
     }]
     sockets = []
 
-    http.listen(localPort, function () {
+    http.listen(localPort, localIp, function () {
         console.log(`server started @ ${localIp}:${localPort}`)
     })
 
