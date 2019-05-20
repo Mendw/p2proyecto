@@ -242,7 +242,7 @@ function start(localIp, localPort) {
 }
 
 function connect(localIp, localPort, otherIp, remotePort) {
-    initialize(LocalIp, localPort)
+    initialize(localIp, localPort)
     addPeer(otherIp, remotePort)
 }
 
