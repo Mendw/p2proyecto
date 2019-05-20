@@ -44,4 +44,4 @@ var start = (localIp) => {
     }
 }
 
-utils.getPublicIP(start)
+utils.getLocalIP(start)
