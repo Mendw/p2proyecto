@@ -211,9 +211,9 @@ server_io.on('connection', (socket) => {
     })
 })
 
-function initialize(localPort) {
+function initialize(localIp, localPort) {
     peers = [{
-        address: "localhost",
+        address: localIp,
         port: localPort,
     }]
     sockets = []
@@ -236,14 +236,14 @@ function initialize(localPort) {
     }, 10000)
 }
 
-function start(localPort) {
+function start(localIp, localPort) {
     blockchain = new Blockchain()
-    initialize(localPort)
+    initialize(localIp, localPort)
 }
 
-function connect(localPort, address, remotePort) {
-    initialize(localPort)
-    addPeer(address, remotePort)
+function connect(localIp, localPort, otherIp, remotePort) {
+    initialize(LocalIp, localPort)
+    addPeer(otherIp, remotePort)
 }
 
 module.exports = exports = {
