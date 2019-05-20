@@ -219,7 +219,7 @@ function initialize(localIp, localPort) {
     sockets = []
 
     http.listen(localPort, function () {
-        console.log(`server started @ ${localPort}`)
+        console.log(`server started @ ${localIp}:${localPort}`)
     })
 
     setInterval(() => {
