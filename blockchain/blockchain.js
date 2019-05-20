@@ -1,5 +1,6 @@
 const app = require('express')()
 const http = require('http').createServer(app)
+const localtunnel = require('localtunnel')
 
 const client_io = require('socket.io-client')
 const server_io = require('socket.io')(http)
@@ -12,6 +13,19 @@ var peers
 var sockets
 
 var blockchain
+
+function getTunnel(port) {
+    let tunnel = localtunnel(port, (err, tunnel) => {
+        console.log(err)
+        console.log(tunnel.url)
+    })
+
+    tunnel.on('close', () => {
+        console.log("Tunnel is cancelled")
+    })
+
+    return tunnel
+}
 
 function generateSerialized() {
     let pair = sjcl.ecc.elGamal.generateKeys(256)
@@ -220,7 +234,9 @@ function initialize(localIp, localPort) {
     }]
     sockets = []
 
-    http.listen(localPort, localIp, function () {
+    let tunnel = getTunnel(localPort)
+
+    http.listen(localPort, function () {
         console.log(`server started @ ${localIp}:${localPort}`)
     })
 
