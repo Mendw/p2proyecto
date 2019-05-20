@@ -15,9 +15,10 @@ var sockets
 var blockchain
 
 function getTunnel(port) {
-    let tunnel = localtunnel(port, (err, tunnel) => {
-        console.log(err)
-        console.log(tunnel.url)
+    let tunnel = localtunnel(port, {
+        subdomain: `p2proyecto${port}`
+    }, (err, tunnel) => {
+        console.log(`Connected at ${tunnel.url}`)
     })
 
     tunnel.on('close', () => {
@@ -161,18 +162,12 @@ class Blockchain {
     }
 }
 
-function addPeer(address, port) {
-    console.log(`Trying to add peer`)
-    let peer = {
-        address: address,
-        port: port,
-    }
+function addPeer(address) {
+    peers.push(address)
 
-    peers.push(peer)
-
-    let socket = connectSocket(address, port)
+    let socket = connectSocket(address)
     sockets.push({
-        peer: peer,
+        address: address,
         socket: socket,
     })
 }
@@ -190,7 +185,7 @@ function emitWhisper(socket) {
 
 function isNewPeer(remotePeer) {
     return peers.every(localPeer => {
-        return remotePeer.port != localPeer.port || remotePeer.address != localPeer.address
+        return remotePeer == localPeer
     })
 }
 
@@ -209,9 +204,9 @@ function parseWhisper(whisper) {
     }
 }
 
-function connectSocket(address, port) {
+function connectSocket(address) {
 
-    let socket = client_io.connect(`http://${address}:${port}`)
+    let socket = client_io.connect(address)
     socket.on('whisper', (whisper) => {
         parseWhisper(whisper)
     })
@@ -227,17 +222,17 @@ server_io.on('connection', (socket) => {
     })
 })
 
-function initialize(localIp, localPort) {
-    peers = [{
-        address: localIp,
-        port: localPort,
-    }]
-    sockets = []
-
+function initialize(localPort) {
     let tunnel = getTunnel(localPort)
 
+    peers = [
+        tunnel.url,
+    ]
+
+    sockets = []
+
     http.listen(localPort, function () {
-        console.log(`server started @ ${localIp}:${localPort}`)
+        console.log(`server started @ ${localPort}`)
     })
 
     setInterval(() => {
@@ -254,14 +249,14 @@ function initialize(localIp, localPort) {
     }, 10000)
 }
 
-function start(localIp, localPort) {
+function start(localPort) {
     blockchain = new Blockchain()
-    initialize(localIp, localPort)
+    initialize(localPort)
 }
 
-function connect(localIp, localPort, otherIp, remotePort) {
-    initialize(localIp, localPort)
-    addPeer(otherIp, remotePort)
+function connect(localPort, remoteAddress) {
+    initialize(localPort)
+    addPeer(remoteAddress)
 }
 
 module.exports = exports = {

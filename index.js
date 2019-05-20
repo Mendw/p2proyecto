@@ -2,12 +2,13 @@ var blockchain = require('./blockchain')
 var utils = require('./utils')
 var args = process.argv.slice(2);
 
-var start = (localIp) => {
+let localPort, remoteAddress, remotePort
+var start = () => {
     switch (args.length) {
         case 1:
-            var localPort = parseInt(args[0])
+            localPort = parseInt(args[0])
             if (localPort != NaN) {
-                blockchain.start(localIp, localPort)
+                blockchain.start(localPort)
             }
             else {
                 console.log("Invalid args")
@@ -15,24 +16,16 @@ var start = (localIp) => {
             }
             break
         case 2:
-            var localPort = parseInt(args[0])
-            var remotePort = parseInt(args[1])
+            localPort = parseInt(args[0])
+            remotePort = parseInt(args[1])
+            if (remotePort != NaN) {
+                return blockchain.connect(localPort, `p2proyecto${remotePort}`)
+            }
 
-            if (localPort != NaN && remotePort != NaN) {
-                blockchain.connect(localIp, localPort, localIp, remotePort)
+            if (localPort != NaN) {
+                blockchain.connect(localPort, args[1])
             }
-            else {
-                console.log("Invalid args")
-                process.exit();
-            }
-            break;
-        case 3:
-            var localPort = parseInt(args[0])
-            var remotePort = parseInt(args[2])
-
-            if (localPort != NaN && remotePort != NaN && utils.isIp(args[1])) {
-                blockchain.connect(localIp, localPort, args[1], remotePort)
-            }
+            
             else {
                 console.log("Invalid args")
                 process.exit();
@@ -44,4 +37,4 @@ var start = (localIp) => {
     }
 }
 
-utils.getLocalIP(start)
+start()
