@@ -173,6 +173,7 @@ function addPeer(address) {
 }
 
 app.get('/client', function (req, res) {
+    console.dir(req)
     res.sendFile(__dirname + '/html/index.html')
 })
 
@@ -192,7 +193,7 @@ function isNewPeer(remotePeer) {
 function parseWhisper(whisper) {
     whisper.peers.forEach((remotePeer) => {
         if (isNewPeer(remotePeer)) {
-            addPeer(remotePeer.address, remotePeer.port)
+            addPeer(remotePeer)
         }
     })
     if (whisper.blockchain) {
