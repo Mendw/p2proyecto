@@ -19,13 +19,13 @@ var start = () => {
             localPort = parseInt(args[0])
             remotePort = parseInt(args[1])
             if (remotePort != NaN) {
-                return blockchain.connect(localPort, `p2proyecto${remotePort}`)
+                return blockchain.connect(localPort, `https://p2proyecto${remotePort}.localtunnel.me`)
             }
 
             if (localPort != NaN) {
                 blockchain.connect(localPort, args[1])
             }
-            
+
             else {
                 console.log("Invalid args")
                 process.exit();
