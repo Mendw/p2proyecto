@@ -4,10 +4,11 @@ function sha256(plaintext) {
 
 function generateKeyPair() {
     let pair = sjcl.ecc.ecdsa.generateKeys(256)
+    let pub = pair.pub.get(), sec = pair.sec.get()
 
     return {
         public: ,
-        private:,
+        private: ,
     }
 }
 
