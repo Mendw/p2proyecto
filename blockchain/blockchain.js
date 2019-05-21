@@ -179,8 +179,9 @@ class Blockchain {
 }
 
 function addPeer(address) {
+    address = address + "/blockchain"
     peers.push(address)
-
+    console.log("trynna connect to " + address)
     let socket = connectSocket(address)
     sockets.push({
         address: address,
@@ -229,7 +230,7 @@ function parseWhisper(whisper) {
 
 function connectSocket(address) {
 
-    let socket = client_io.connect(address + "blockchain")
+    let socket = client_io.connect(address)
     socket.on('whisper', (whisper) => {
         parseWhisper(whisper)
     })
