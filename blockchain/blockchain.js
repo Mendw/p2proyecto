@@ -17,6 +17,8 @@ var sockets
 var blockchain
 var tunnel
 
+var needsNewline = false
+
 function getTunnel(port) {
     let tunnel = localtunnel(port, {
         subdomain: `dml-p2p-${port}`
@@ -25,10 +27,11 @@ function getTunnel(port) {
             console.log(err)
         }
         console.log(`Connected at ${tunnel.url}`)
+        peers.push(tunnel.url + "/blockchain")
     })
 
     tunnel.on('request', info => {
-        console.dir(info)
+        console.log(`New ${info.method} request`)
     })
 
     tunnel.on('error', err => {
@@ -179,17 +182,20 @@ class Blockchain {
 }
 
 function addPeer(address) {
-    address = address + "/blockchain"
     peers.push(address)
-    console.log("trynna connect to " + address)
     let socket = connectSocket(address)
     sockets.push({
         address: address,
         socket: socket,
     })
+    console.log(`${peers ? `Peers: ${peers.length}` : ""} | ${blockchain ? `Blocks: ${blockchain.blocks.length} | Pending: ${blockchain.pending.length}` : "No blockchain"}`)
 }
 
 app.use(express.static(__dirname + '/html'))
+
+app.get('/', (req, res) => {
+    res.status(404).send("Sorry, couldn't find that")
+})
 
 app.get('/client', function (req, res) {
     let host = req.headers.host
@@ -209,7 +215,7 @@ function emitWhisper(socket) {
 
 function isNewPeer(remotePeer) {
     return peers.every(localPeer => {
-        return remotePeer == localPeer
+        return remotePeer != localPeer
     })
 }
 
@@ -224,22 +230,40 @@ function parseWhisper(whisper) {
         if (!blockchain || otherBC.blocks.length > blockchain.blocks.length) {
             console.log("Copying blockchain")
             blockchain = otherBC
+            console.log(`${peers ? `Peers: ${peers.length}` : ""} | ${blockchain ? `Blocks: ${blockchain.blocks.length} | Pending: ${blockchain.pending.length}` : "No blockchain"}`)
         }
     }
 }
 
 function connectSocket(address) {
+    let socket = client_io(address)
+    socket.on('welcome', message => {
+        parseWhisper(message)
+        socket.emit('whisper', {
+            peers: peers
+        })
+    })
 
-    let socket = client_io.connect(address)
     socket.on('whisper', (whisper) => {
         parseWhisper(whisper)
+    })
+
+    socket.on('error', (error) => {
+        console.log(`Socket client error, (${error})`)
+    })
+
+    socket.on('reconnect', (data) => {
+        console.log(`trynna reconnect {${data}}`)
     })
 
     return socket
 }
 
 server_io.of('/blockchain').on('connection', (socket) => {
-    emitWhisper(socket)
+    socket.emit('welcome', {
+        peers: peers,
+        blockchain: blockchain
+    })
 
     socket.on('whisper', whisper => {
         parseWhisper(whisper)
@@ -252,45 +276,52 @@ server_io.of('/client').on('connection', socket => {
     })
 
     socket.on('login', data => {
-        console.log(data.username, data.password)
+        console.log(data.username, data.password, data.signature)
     })
 })
 
-function initialize(localPort) {
-    tunnel = getTunnel(localPort)
+function initialize(localPort, local) {
+    if (local)
+        console.log("starting locally")
 
-    peers = [
-        tunnel.url,
-    ]
+    try {
+        fs.mkdirSync("./_public")
+    } catch (err) {
+
+    }
+    peers = []
+
+    if (local) {
+        peers.push(`http://localhost:${localPort}/blockchain`)
+    } else {
+        tunnel = getTunnel(localPort)
+    }
 
     sockets = []
 
     http.listen(localPort, function () {
-        console.log(`server started @ ${localPort}`)
+        console.log(`server started at port ${localPort}`)
     })
 
     setInterval(() => {
-        //console.log(peers)
         sockets.forEach(s => {
             if (s.socket.connected) {
                 emitWhisper(s.socket)
+            } else {
+                console.log(`(${s.address}) was closed`)
             }
         })
     }, 5000)
-
-    setInterval(() => {
-        console.log(blockchain)
-    }, 10000)
 }
 
-function start(localPort) {
+function start(localPort, local) {
     blockchain = new Blockchain()
-    initialize(localPort)
+    initialize(localPort, local)
 }
 
-function connect(localPort, remoteAddress) {
-    initialize(localPort)
-    addPeer(remoteAddress)
+function connect(localPort, remoteAddress, local) {
+    initialize(localPort, local)
+    addPeer(remoteAddress + "/blockchain")
 }
 
 function closeTunnel() {

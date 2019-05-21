@@ -4,7 +4,7 @@
   "description": "Segundo proyecto de Sistemas Distribuidos",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "start.bat",
     "server": "node index.js 1000",
     "client": "node index.js 1001 1000",
     "test": "echo \"Error: no test specified\" && exit 1"
