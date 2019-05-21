@@ -1,4 +1,5 @@
-const app = require('express')()
+const express = require('express')
+const app = express()
 const http = require('http').createServer(app)
 const localtunnel = require('localtunnel')
 
@@ -6,6 +7,7 @@ const client_io = require('socket.io-client')
 const server_io = require('socket.io')(http)
 
 const sjcl = require("./sjcl")
+const fs = require("fs")
 
 const difficulty = 4
 
@@ -13,12 +15,26 @@ var peers
 var sockets
 
 var blockchain
+var tunnel
 
 function getTunnel(port) {
     let tunnel = localtunnel(port, {
-        subdomain: `p2proyecto${port}`
+        subdomain: `dml-p2p-${port}`
     }, (err, tunnel) => {
+        if (err) {
+            console.log(err)
+        }
         console.log(`Connected at ${tunnel.url}`)
+    })
+
+    tunnel.on('request', info => {
+        console.dir(info)
+    })
+
+    tunnel.on('error', err => {
+        console.log("Caught an error")
+        console.dir(err);
+        tunnel.close()
     })
 
     tunnel.on('close', () => {
@@ -131,7 +147,7 @@ class Block {
     }
 
     toString() {
-        return `${this.lastHash}|${this.timestamp}|${this.data}|${this.nonce}`
+        return `>${this.lastHash}|${this.timestamp}|${this.data}|${this.nonce}<`
     }
 }
 
@@ -172,9 +188,15 @@ function addPeer(address) {
     })
 }
 
+app.use(express.static(__dirname + '/html'))
+
 app.get('/client', function (req, res) {
-    console.dir(req)
-    res.sendFile(__dirname + '/html/index.html')
+    let host = req.headers.host
+    if (host && host.slice(0, 10) == 'localhost:')
+        res.sendFile(__dirname + '/html/index.html')
+    else {
+        res.status(403).send("<h1 style='text-align:center'>403 Forbidden</h1></br><p style='text-align:center'>Frick off</p>")
+    }
 })
 
 function emitWhisper(socket) {
@@ -207,7 +229,7 @@ function parseWhisper(whisper) {
 
 function connectSocket(address) {
 
-    let socket = client_io.connect(address)
+    let socket = client_io.connect(address + "blockchain")
     socket.on('whisper', (whisper) => {
         parseWhisper(whisper)
     })
@@ -215,16 +237,26 @@ function connectSocket(address) {
     return socket
 }
 
-server_io.on('connection', (socket) => {
+server_io.of('/blockchain').on('connection', (socket) => {
     emitWhisper(socket)
 
-    socket.on('whisper', (whisper) => {
+    socket.on('whisper', whisper => {
         parseWhisper(whisper)
     })
 })
 
+server_io.of('/client').on('connection', socket => {
+    socket.emit('files', {
+        filenames: fs.readdirSync("./_public")
+    })
+
+    socket.on('login', data => {
+        console.log(data.username, data.password)
+    })
+})
+
 function initialize(localPort) {
-    let tunnel = getTunnel(localPort)
+    tunnel = getTunnel(localPort)
 
     peers = [
         tunnel.url,
@@ -260,7 +292,13 @@ function connect(localPort, remoteAddress) {
     addPeer(remoteAddress)
 }
 
+function closeTunnel() {
+    console.log("closing")
+    tunnel.close()
+}
+
 module.exports = exports = {
     connect: connect,
     start: start,
+    close: closeTunnel,
 }

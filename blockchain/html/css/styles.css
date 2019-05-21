@@ -1,0 +1,135 @@
+*{
+    margin: 0;
+    padding: 0;
+    border: 0px;
+    font-family: monospace, sans-serif;
+}
+
+body{
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    align-content: stretch;
+}
+
+h1{
+    margin: auto;
+    color: 	black;
+}
+
+#top{
+    flex: 1;
+    display: flex;
+    align-items: center;
+    align-content: center;
+    background-color: #595959;
+}
+
+#middle {
+    flex: 9;
+    background-color: grey;
+}
+
+#loginDiv,#mainDiv{
+    display: flex;
+    width: 100%;
+    height: 100%;
+    flex-direction: row;
+    justify-content: space-around;
+    align-content: center;
+    align-items: center;
+}
+
+#mainDiv{
+    display: none
+}
+
+#login,#logs,#controlPanel{
+    height: 100%;
+}
+
+.button {
+    display: block;
+    margin: auto;
+    width: 100px;
+    height: 50px;
+    font-size: 1.5em;
+    background-color: lightgray;
+    color:grey;
+    border-radius: 5px;
+
+    transition-property: background-color, color;
+    transition-duration: 100ms;
+    transition-timing-function: ease-out
+}
+
+.button:hover{
+    background-color: grey;
+    color: lightgrey;
+}
+
+#login {
+    display: flex;
+    flex-direction: column;
+    align-content: stretch;
+    width: 25%;
+    height: 75%;
+    background-color: 	#FF8264;
+}
+
+#login-title {
+    flex: 1;
+    border: 1px solid black;
+    box-sizing: border-box;
+    display: flex;
+}
+
+#login-form {
+    flex: 7;
+    border: 1px solid black;
+    border-top: none;
+    box-sizing: border-box;
+}
+
+#login-form form {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: stretch;
+    align-items: stretch;
+}
+
+.form-section {
+    flex: 1;
+    display: flex;
+
+    flex-direction: column;
+    justify-content: stretch;
+    align-items: stretch; 
+}
+
+.tag-input-pair{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.tag-input-pair > * {
+    height: 25px;
+    width: 70%;
+}
+
+#controlPanel{
+    flex: 3;
+    background-color: #8fb4ff;
+}
+
+#logs{
+    flex: 1;
+    background-color: #FFDA8F;
+}

@@ -2,7 +2,21 @@ var blockchain = require('./blockchain')
 var utils = require('./utils')
 var args = process.argv.slice(2);
 
-let localPort, remoteAddress, remotePort
+process.stdin.resume();
+
+process.on('beforeExit', (code) => {
+    blockchain.close()
+});
+process.on('SIGINT', () => {
+    blockchain.close()
+    process.exit()
+});
+process.on('uncaughtException', () => {
+    blockchain.close()
+    process.exit()
+});
+
+let localPort, remotePort
 var start = () => {
     switch (args.length) {
         case 1:
@@ -19,7 +33,7 @@ var start = () => {
             localPort = parseInt(args[0])
             remotePort = parseInt(args[1])
             if (remotePort != NaN) {
-                return blockchain.connect(localPort, `https://p2proyecto${remotePort}.localtunnel.me`)
+                return blockchain.connect(localPort, `https://dml-p2p-${remotePort}.localtunnel.me`)
             }
 
             if (localPort != NaN) {

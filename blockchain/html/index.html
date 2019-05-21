@@ -5,21 +5,96 @@
 <head>
     <meta charset="utf-8">
 
-    <title>Test</title>
+    <title>P2P Client</title>
     <meta name="description" content="Página principal de la app de proyectos distribuidos">
     <meta name="author" content="José Mendoza">
-
-    <link rel="stylesheet" href="css/styles.css?v=1.0">
-
+    <link rel="stylesheet" type="text/css" href="css/styles.css?v=1.0">
 </head>
 
 <body>
-    <h1>Si</h1>
+    <div id="top">
 
+    </div>
+    <div id="middle">
+        <div id="loginDiv">
+            <div id="login">
+                <div id="login-title">
+                    <h1>ingreso</h1>
+                </div>
+                <div id="login-form">
+                    <form action="" autocomplete="off" autocapitalize="off">
+                        <div class="form-section">
+                            <div class="tag-input-pair">
+                                <span>username</span>
+                                <input type="text" id="username" />
+                            </div>
+                            <div class="tag-input-pair">
+                                <span>password</span>
+                                <input type="password" id="password" />
+                            </div>
+                        </div>
+                        <div class="form-section">
+                            <div class="tag-input-pair">
+                                <input id="submit" type="submit" style="width: 50%" value="Submit">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div id="mainDiv">
+            <div id="controlPanel">
+            </div>
+            <div id="logs"></div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="http://code.jquery.com/color/jquery.color-2.1.2.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        var socket = io();
+        let cycle = (element, timeout) => {
+            element.attr('disabled', 'true')
+            element.animate({
+                backgroundColor: '#292a2d',
+            }, timeout / 2, () => {
+                element.animate({
+                    backgroundColor: 'white',
+                }, timeout / 2, () => {
+                    element.removeAttr('disabled')
+                })
+            })
+        }
+
+        $(function () {
+            var socket = io('/client');
+            socket.on('files', data => {
+                console.log(data)
+            })
+
+            $('form').submit(e => {
+                e.preventDefault()
+                let username = $('#username').val()
+                let password = $('#password').val()
+
+
+                if (username && password) {
+                    let data = {
+                        username: username,
+                        password: password,
+                    }
+                    console.log(data)
+                    socket.emit('login', data)
+
+                    let submit = $('#submit')
+                    cycle(submit, 2000)
+                } else {
+                    console.log("Invalid")
+                }
+                return false;
+            })
+        })
     </script>
+
 </body>
 
 </html>

@@ -12,7 +12,6 @@ function isIP(ip) {
 }
 
 function getPublicIP(callback) {
-    callback(ip)
     http.get('https://api.ipify.org', res => {
         const { statusCode } = res
         let error;
