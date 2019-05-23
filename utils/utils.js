@@ -31,6 +31,17 @@ function getPublicIP(callback) {
     })
 }
 
+
+function verify(plaintext, signed, publicKey) {
+    try {
+        return publicKey.verify(sjcl.hash.sha256.hash(plaintext), signed)
+    } catch (error) {
+        console.dir(error)
+        return false;
+    }
+}
+
+
 module.exports = exports = {
     isIp: isIP,
     getPublicIP: getPublicIP,

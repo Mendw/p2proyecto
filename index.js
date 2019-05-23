@@ -2,7 +2,6 @@ var blockchain = require('./blockchain')
 var utils = require('./utils')
 var args = process.argv.slice(2);
 
-
 var local = true;
 
 if (!local) {
