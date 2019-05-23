@@ -1,11 +1,6 @@
 var http = require('https')
 
 const ipre = /\b(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\b/
-const ip = require('ip')
-
-function getLocalIP (callback) {
-    callback(ip.address())
-}
 
 function isIP(ip) {
     return ipre.test(ip)
@@ -39,5 +34,4 @@ function getPublicIP(callback) {
 module.exports = exports = {
     isIp: isIP,
     getPublicIP: getPublicIP,
-    getLocalIP: getLocalIP
 }
