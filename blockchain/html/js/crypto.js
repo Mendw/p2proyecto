@@ -11,26 +11,15 @@ function generateKeyPair() {
     }
 }
 
-function serialize(pair) {
+function serialize(public, secret) {
+    if(public) public = sjcl.codec.base64.fromBits(public.get().x.concat(public.y))
+    if(secret) secret = sjcl.codec.base64.fromBits(secret.get())
     return {
-        public: sjcl.codec.base64.fromBits(pair.public.get().x.concat(pair.public.y)),
-        secret: sjcl.codec.base64.fromBits(pair.secret.get())
-    }
-}
-
-function deserialize(serializedPair){
-    return {
-        public: new sjcl.ecc.ecdsa.publicKey(
-            sjcl.ecc.curves.c256,
-            sjcl.codec.base64.toBits(serializedPair.public)
-        ),
-        secret: new sjcl.ecc.ecdsa.secretKey(
-            sjcl.ecc.curves.c256,
-            sjcl.ecc.curves.c256.field.fromBits(sjcl.codec.base64.toBits(serializedPair.secret))
-        )
+        public: public,
+        secret: secret,
     }
 }
 
 function sign(plaintext, secretKey) {
-    return secretKey.sign(sjcl.hash.sha256.hash(plaintext))
+    return sjcl.codec.base64.fromBits(secretKey.sign(sjcl.hash.sha256.hash(plaintext)))
 }

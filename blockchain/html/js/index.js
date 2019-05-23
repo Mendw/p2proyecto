@@ -21,7 +21,7 @@ $(function () {
         if (username && password) {
             let data = {
                 username: username,
-                public: pair.public,
+                public: serialize(pair.public).public,
                 signature: sign(`[username|>${username}]`, pair.secret)
             }
             console.log(data)

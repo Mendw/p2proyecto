@@ -67,8 +67,24 @@ function plaintext() {
 
 }
 
-function verify() {
+function deserialize(public) {
+    let asd = new sjcl.ecc.ecdsa.publicKey(
+        sjcl.ecc.curves.c256,
+        sjcl.codec.base64.toBits(public)
+    )
+    console.log("deserialized")
+    return asd
+}
 
+function verify(signed, plaintext, serializedPublic) {
+    console.log(plaintext)
+    console.log(signed)
+    try {
+        return deserialize(serializedPublic).verify(sjcl.hash.sha256.hash(plaintext), signed)
+    } catch (err) {
+        console.log(err)
+        return false
+    }
 }
 
 class Transaction {
@@ -276,7 +292,12 @@ server_io.of('/client').on('connection', socket => {
     })
 
     socket.on('login', data => {
-        console.log(data.username, data.password, data.signature)
+        console.log({
+            user: data.username,
+            pkey: data.public,
+            sig: data.signature
+        })
+        console.log(`Valid? ${verify(data.signature, `[username|>${data.username}]`, data.public)}`)
     })
 })
 
