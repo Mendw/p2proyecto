@@ -50,53 +50,10 @@
     </div>
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
     <script src="https://code.jquery.com/color/jquery.color-2.1.2.min.js"></script>
-    <script src="sjcl.js"></script>
-    <script src="crypto.js"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <script>
-        console.log(sha256("Test"))
-        let cycle = (element, timeout) => {
-            element.attr('disabled', 'true')
-            element.animate({
-                backgroundColor: '#292a2d',
-            }, timeout / 2, () => {
-                element.animate({
-                    backgroundColor: 'white',
-                }, timeout / 2, () => {
-                    element.removeAttr('disabled')
-                })
-            })
-        }
-
-        $(function () {
-            var socket = io('/client');
-            socket.on('files', data => {
-                console.log(data)
-            })
-
-            $('form').submit(e => {
-                e.preventDefault()
-                let username = $('#username').val()
-                let password = $('#password').val()
-
-
-                if (username && password) {
-                    let data = {
-                        username: username,
-                        password: password,
-                    }
-                    console.log(data)
-                    socket.emit('login', data)
-
-                    let submit = $('#submit')
-                    cycle(submit, 2000)
-                } else {
-                    console.log("Invalid")
-                }
-                return false;
-            })
-        })
-    </script>
+    <script src="js/sjcl.js"></script>
+    <script src="js/crypto.js"></script>
+    <script src="js/index.js"></script>
 
 </body>
 
