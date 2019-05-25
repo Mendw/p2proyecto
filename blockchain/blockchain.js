@@ -17,8 +17,6 @@ var sockets
 var blockchain
 var tunnel
 
-var needsNewline = false
-
 function getTunnel(port) {
     let tunnel = localtunnel(port, {
         subdomain: `dml-p2p-${port}`
@@ -68,21 +66,21 @@ function plaintext() {
 }
 
 function deserialize(public) {
-    let asd = new sjcl.ecc.ecdsa.publicKey(
+    return new sjcl.ecc.ecdsa.publicKey(
         sjcl.ecc.curves.c256,
         sjcl.codec.base64.toBits(public)
     )
-    console.log("deserialized")
-    return asd
 }
 
-function verify(signed, plaintext, serializedPublic) {
-    console.log(plaintext)
-    console.log(signed)
+function verify(data) {
+    let signature = sjcl.codec.base64.toBits(data.signature)
+    let plaintext = `[username:${data.username}] [public:${data.public}]`
+    let public = deserialize(data.public)
+
     try {
-        return deserialize(serializedPublic).verify(sjcl.hash.sha256.hash(plaintext), signed)
+        return public.verify(sjcl.hash.sha256.hash(plaintext), signature)
     } catch (err) {
-        console.log(err)
+        console.dir(err)
         return false
     }
 }
@@ -115,7 +113,7 @@ class Transaction {
     }
 
     toString() {
-        return `${this.timestamp}<|>${this.type}<|>${this.from}<|>${this.username}`
+        return `<${this.timestamp}>|<${this.type}>|<${this.from}>|<${this.username}`
     }
 }
 
@@ -123,7 +121,9 @@ class Block {
     constructor(data) {
         if (!data) {
             this.lastHash = null
+            this.timestamp = undefined
             this.transactions = [Transaction.genesis()]
+            this.nonce = undefined
             return
         } else {
             this.lastHash = data.lastBlock ? data.lastBlock.hash() : null
@@ -297,7 +297,11 @@ server_io.of('/client').on('connection', socket => {
             pkey: data.public,
             sig: data.signature
         })
-        console.log(`Valid? ${verify(data.signature, `[username|>${data.username}]`, data.public)}`)
+        if (verify(data)) {
+            socket.emit('login-approved')
+        } else {
+            socket.emit('login-denied')
+        }
     })
 })
 
@@ -307,9 +311,8 @@ function initialize(localPort, local) {
 
     try {
         fs.mkdirSync("./_public")
-    } catch (err) {
-
-    }
+        fs.mkdirSync("./_temp")
+    } catch (err) {}
     peers = []
 
     if (local) {

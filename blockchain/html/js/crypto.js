@@ -11,9 +11,11 @@ function generateKeyPair() {
     }
 }
 
-function serialize(public, secret) {
-    if(public) public = sjcl.codec.base64.fromBits(public.get().x.concat(public.y))
-    if(secret) secret = sjcl.codec.base64.fromBits(secret.get())
+function serialize(pair) {
+    if (!pair) return
+    let public = pair.public, secret = pair.secret
+    if (public) public = sjcl.codec.base64.fromBits(public.get().x.concat(public.get().y))
+    if (secret) secret = sjcl.codec.base64.fromBits(secret.get())
     return {
         public: public,
         secret: secret,
