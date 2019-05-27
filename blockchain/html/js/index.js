@@ -1,4 +1,27 @@
 var socket
+var logs
+
+var socketInfo
+var recieved
+
+var fileContainer
+
+function updateState(data) {
+    if (!data) {
+        return
+    }
+
+    if (data.socketStatus != undefined && data.socketStatus != socketInfo.status) {
+        socketInfo.status = data.socketStatus
+        socketInfo.element.innerText = data.socketStatus ? 'connected' : 'disconnected'
+        socketInfo.element.style.color = data.socketStatus ? 'green' : 'red'
+    }
+
+    if (data.recieved != undefined && data.recieved != 0) {
+        recieved.count += data.recieved
+        recieved.element.innerText = recieved.count
+    }
+}
 
 function cycle(element, timeout) {
     element.setAttribute('disabled', 'true')
@@ -72,8 +95,50 @@ function submitLogin() {
 window.onload = () => {
     socket = io('/client');
 
+    socketInfo = {
+        element: document.getElementById('socket-status'),
+        status: false,
+    }
+
+    recieved = {
+        element: document.getElementById('packets-recieved'),
+        count: 0
+    }
+
+    logs = document.getElementById('logs-p')
+    fileContainer = document.getElementById('files')
+
     socket.on('files', data => {
-        console.log(data)
+        updateState({
+            recieved: 1
+        })
+        let pattern = /(.+)\.(.+)/
+        data.filenames.forEach(name => {
+            let result = name.match(pattern)
+            if (result) {
+                fileContainer.innerHTML += `<div class='file'>
+                <div>
+                    <img src='ico/blackwhite/${result[2]}.png'>
+                    <img src='ico/color/${result[2]}.png'>
+                </div>
+                <br>
+                <label>${result[1]}</label>
+            </div>`
+            }
+        })
+    })
+
+    socket.on('connect', () => {
+        updateState({
+            socketStatus: true
+        })
+    })
+
+    socket.on('disconnect', () => {
+        console.log("asd")
+        updateState({
+            socketStatus: false
+        })
     })
 
     socket.on('login-approved', () => {
@@ -81,35 +146,9 @@ window.onload = () => {
 
     socket.on('login-denied', () => {
     })
+
+    updateState({
+        socketStatus: socket.connected,
+        recieved: 0
+    })
 }
-/*
-$(function () {
-    var socket = io('/client');
-    socket.on('files', data => {
-        console.log(data)
-    })
-
-    var pair = generateKeyPair()
-
-    $('form').submit(e => {
-        e.preventDefault()
-        let username = $('#username').val()
-        let password = $('#password').val()
-
-        if (username && password) {
-            let data = {
-                username: username,
-                public: serialize(pair.public).public,
-                signature: sign(`[username|>${username}]`, pair.secret)
-            }
-            console.log(data)
-            socket.emit('login', data)
-
-            let submit = $('#submit')
-            cycle(submit, 2000)
-        } else {
-            console.log("Invalid")
-        }
-        return false;
-    })
-})*/

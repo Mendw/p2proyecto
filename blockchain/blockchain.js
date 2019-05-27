@@ -203,6 +203,7 @@ function addPeer(address) {
     sockets.push({
         address: address,
         socket: socket,
+        attempts: 0,
     })
     console.log(`${peers ? `Peers: ${peers.length}` : ""} | ${blockchain ? `Blocks: ${blockchain.blocks.length} | Pending: ${blockchain.pending.length}` : "No blockchain"}`)
 }
@@ -312,7 +313,7 @@ function initialize(localPort, local) {
     try {
         fs.mkdirSync("./_public")
         fs.mkdirSync("./_temp")
-    } catch (err) {}
+    } catch (err) { }
     peers = []
 
     if (local) {
@@ -332,7 +333,7 @@ function initialize(localPort, local) {
             if (s.socket.connected) {
                 emitWhisper(s.socket)
             } else {
-                console.log(`(${s.address}) was closed`)
+                
             }
         })
     }, 5000)

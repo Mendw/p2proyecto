@@ -30,8 +30,6 @@
                             <label for="file">key pair</label>
                             <input type="file" id="fileBox" />
                         </div>
-                    </div>
-                    <div class='auth-section'>
                         <div class="label-input-pair">
                             <button class="button" style="width: 50%" onclick="submitLogin()">Enviar</button>
                             <button class="button" style="width: 50%" onclick="registerNew()">Register</button>
@@ -42,9 +40,27 @@
         </div>
         <div id="mainDiv">
             <div id="controlPanel">
-                <div></div>
+                <div id="files">
+                    
+                </div>
             </div>
-            <div id="logs"></div>
+            <div id="sidebar">
+                <div id="search">
+                    <div id="search-top">
+                        <input type="search" id="search-bar">
+                        <input type="submit" id="search-button" value="&#x1F50E" onclick="search()">
+                    </div>
+                    <div id="search-results">
+
+                    </div>
+                </div>
+                <div id="logs">
+                    <p id="logs-p">
+                        Socket is <span id="socket-status">undefined</span><br>
+                        Packets recieved: <span id="packets-recieved">0</span>
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
     <script src="/socket.io/socket.io.js"></script>
