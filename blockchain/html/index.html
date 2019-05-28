@@ -25,10 +25,11 @@
                         <div class="label-input-pair">
                             <label for="username">username</label>
                             <input type="text" id="username" />
-                        </div>
-                        <div class="label-input-pair">
+                            <br>
                             <label for="file">key pair</label>
                             <input type="file" id="fileBox" />
+                            <br>
+                            <label id="login-result"></label>
                         </div>
                         <div class="label-input-pair">
                             <button class="button" style="width: 50%" onclick="submitLogin()">Enviar</button>
@@ -41,7 +42,6 @@
         <div id="mainDiv">
             <div id="controlPanel">
                 <div id="files">
-                    
                 </div>
             </div>
             <div id="sidebar">
@@ -57,7 +57,8 @@
                 <div id="logs">
                     <p id="logs-p">
                         Socket is <span id="socket-status">undefined</span><br>
-                        Packets recieved: <span id="packets-recieved">0</span>
+                        Packets recieved: <span id="packets-recieved">0</span><br>
+                        <span id="loginfo"></span>
                     </p>
                 </div>
             </div>

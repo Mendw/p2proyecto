@@ -3,7 +3,6 @@ var utils = require('./utils')
 var args = process.argv.slice(2);
 
 var local = true;
-
 if (!local) {
     process.stdin.resume();
 
@@ -39,7 +38,7 @@ var start = () => {
             localPort = parseInt(args[0])
             remotePort = parseInt(args[1])
             if (remotePort != NaN) {
-                return blockchain.connect(localPort, local ? `http://localhost:${remotePort}` : `http://dml-p2p-${port}.localtunnel.me`, local)
+                return blockchain.connect(localPort, local ? `http://localhost:${remotePort}` : `http://dml-p2p-${localPort}.localtunnel.me`, local)
             }
 
             if (localPort != NaN) {

@@ -47,10 +47,9 @@ h1, h2{
     justify-content: space-around;
     align-content: center;
     align-items: center;
-
 }
 
-#loginDiv{
+#mainDiv{
     display: none
 }
 
@@ -209,6 +208,7 @@ h1, h2{
     height: 100px;
 
     margin: 10px;
+    user-select: none;
 }
 
 .file > label {

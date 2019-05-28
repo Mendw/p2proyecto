@@ -5,6 +5,17 @@ var socketInfo
 var recieved
 
 var fileContainer
+var loginResult
+
+var mainDiv, loginDiv
+
+var loginfo
+var loginfospan
+
+const screens = {
+    LOGIN: "LOGIN",
+    MAIN: "MAIN"
+}
 
 function updateState(data) {
     if (!data) {
@@ -63,12 +74,22 @@ function registerNew() {
     if (username) {
         pair = generateKeyPair()
         serialized = serialize(pair)
-        savePair(`${serialized.public}:${serialized.secret}`, 'keepsafe.bin')
-        socket.emit('login', {
+
+        loginfo = {
+            public: serialized.public,
+            secret: serialized.secret,
+            username: username
+        }
+
+        let timestamp = new Date().toISOString()
+        socket.emit('register', {
             username: username,
             public: serialized.public,
-            signature: sign(`[username:${username}] [public:${serialized.public}]`, pair.secret),
+            timestamp: timestamp,
+            signature: sign(`[${username}][${serialized.public}][${timestamp}]`, pair.secret),
         })
+        loginResult.innerText = "Processing"
+        loginResult.style.color = "grey"
 
         blockButtons()
     } else alert("Select a username first")
@@ -81,15 +102,50 @@ function submitLogin() {
     var reader = new FileReader()
 
     let file = fileBox.files[0]
-    if (!file) {
+    if (!file || !username) {
         return
     }
     reader.readAsText(file)
     reader.onloadend = event => {
-        console.dir(event.target.result.split(":"))
+        let [public, secret] = event.target.result.split(":")
+        loginfo = {
+            public: public,
+            secret: secret,
+            username: username
+        }
+
+        let timestamp = new Date().toISOString()
+        secret = deserialize(secret)
+
+
+        socket.emit('login', {
+            username: username,
+            public: public,
+            timestamp: timestamp,
+            signature: sign(`[${username}][${public}][${timestamp}]`, secret),
+        })
+        loginResult.innerText = "Processing"
+        loginResult.style.color = "grey"
     }
 
     blockButtons()
+}
+
+function switchScreen(screen) {
+    switch (screen) {
+        case screens.LOGIN:
+            loginDiv.style.display = 'flex'
+            mainDiv.style.display = 'none'
+            break;
+        case screens.MAIN:
+            mainDiv.style.display = 'flex'
+            loginDiv.style.display = 'none'
+
+            loginfospan.innerHTML = `username: ${loginfo.username}<br>
+            public: ${loginfo.public.substring(0, 10)}`
+
+            break;
+    }
 }
 
 window.onload = () => {
@@ -107,21 +163,25 @@ window.onload = () => {
 
     logs = document.getElementById('logs-p')
     fileContainer = document.getElementById('files')
+    loginResult = document.getElementById('login-result')
+    loginDiv = document.getElementById('loginDiv')
+    mainDiv = document.getElementById('mainDiv')
+    loginfospan = document.getElementById('loginfo')
 
     socket.on('files', data => {
         updateState({
             recieved: 1
         })
+        fileContainer.innerHTML = ""
         let pattern = /(.+)\.(.+)/
         data.filenames.forEach(name => {
             let result = name.match(pattern)
             if (result) {
                 fileContainer.innerHTML += `<div class='file'>
                 <div>
-                    <img src='ico/blackwhite/${result[2]}.png'>
-                    <img src='ico/color/${result[2]}.png'>
+                    <img draggable="false" src='ico/blackwhite/${result[2]}.png'>
+                    <img draggable="false" src='ico/color/${result[2]}.png'>
                 </div>
-                <br>
                 <label>${result[1]}</label>
             </div>`
             }
@@ -141,10 +201,34 @@ window.onload = () => {
         })
     })
 
+    socket.on('register-approved', () => {
+        loginResult.innerText = "Approved"
+        loginResult.style.color = "green"
+
+        savePair(`${loginfo.public}:${loginfo.secret}`, `${loginfo.username}.bin`)
+
+        setTimeout(() => {
+            switchScreen(screens.MAIN)
+        }, 1000);
+    })
+
     socket.on('login-approved', () => {
+        loginResult.innerText = "Approved"
+        loginResult.style.color = "green"
+
+        setTimeout(() => {
+            switchScreen(screens.MAIN)
+        }, 1000);
+    })
+
+    socket.on('register-denied', () => {
+        loginResult.innerText = "Denied"
+        loginResult.style.color = "red"
     })
 
     socket.on('login-denied', () => {
+        loginResult.innerText = "Denied"
+        loginResult.style.color = "red"
     })
 
     updateState({

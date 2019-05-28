@@ -10,12 +10,15 @@ const sjcl = require("./sjcl")
 const fs = require("fs")
 
 const difficulty = 4
+var isLocal
 
 var peers
 var sockets
 
 var blockchain
 var tunnel
+
+var miningInfo
 
 function getTunnel(port) {
     let tunnel = localtunnel(port, {
@@ -45,13 +48,18 @@ function getTunnel(port) {
     return tunnel
 }
 
-function generateSerialized() {
-    let pair = sjcl.ecc.elGamal.generateKeys(256)
+function searchBlockchain(username, public) {
+    if (!blockchain || !blockchain.blocks) return -1
+    let rv = 1
+    blockchain.blocks.slice(1).forEach(block => {
+        if (block.transaction.username == username) {
+            rv = block.transaction.public == public ? 3 : 0
+        }
+        if (rv != 1)
+            return
+    })
 
-    return {
-        public: sjcl.codec.base64.fromBits(pair.public.x.concat(pair.public.y)),
-        private: sjcl.codec.base64.fromBits(pair.private)
-    }
+    return rv
 }
 
 function sign(plaintext, serializedPrivate) {
@@ -59,10 +67,6 @@ function sign(plaintext, serializedPrivate) {
         sjcl.ecc.curves.c256,
         sjcl.ecc.curves.c256.field.fromBits(sjcl.codec.base64.toBits(serializedPrivate))
     )
-}
-
-function plaintext() {
-
 }
 
 function deserialize(public) {
@@ -74,9 +78,8 @@ function deserialize(public) {
 
 function verify(data) {
     let signature = sjcl.codec.base64.toBits(data.signature)
-    let plaintext = `[username:${data.username}] [public:${data.public}]`
     let public = deserialize(data.public)
-
+    let plaintext = `[${data.username}][${data.public}][${data.timestamp}]`
     try {
         return public.verify(sjcl.hash.sha256.hash(plaintext), signature)
     } catch (err) {
@@ -87,19 +90,10 @@ function verify(data) {
 
 class Transaction {
     constructor(data) {
-        if (!data) return
-
         this.timestamp = data.timestamp
-        this.type = data.type
-        this.from = data.publicKey
+        this.public = data.public
         this.username = data.username
         this.signature = data.privateKey ? sign(this.toString(), data.privateKey) : data.signature
-    }
-
-    static genesis() {
-        return new Transaction({
-            type: "GENESIS"
-        })
     }
 
     static parse(transactions) {
@@ -109,11 +103,16 @@ class Transaction {
     }
 
     isValid() {
-        return this.type == "GENESIS" || verify(this.toString(), this.signature, this.from)
+        return verify({
+            username: this.username,
+            timestamp: this.timestamp,
+            signature: this.signature,
+            public: this.public
+        })
     }
 
     toString() {
-        return `<${this.timestamp}>|<${this.type}>|<${this.from}>|<${this.username}`
+        return `[${this.username}][${this.timestamp}][${this.signature}][${this.public}]`
     }
 }
 
@@ -122,13 +121,13 @@ class Block {
         if (!data) {
             this.lastHash = null
             this.timestamp = undefined
-            this.transactions = [Transaction.genesis()]
-            this.nonce = undefined
+            this.transaction = undefined
+            this.nonce = 0
             return
         } else {
             this.lastHash = data.lastBlock ? data.lastBlock.hash() : null
             this.timestamp = data.timestamp
-            this.transactions = Transaction.parse(data.transactions)
+            this.transaction = data.transaction
             this.nonce = data.nonce
         }
     }
@@ -144,11 +143,11 @@ class Block {
     }
 
     isGenesis() {
-        return this.lastHash == null && this.transactions.length === 1 && this.transactions[0].isValid()
+        return this.lastHash == null
     }
 
     isValid(prevHash) {
-        return this.isGenesis() || this.isCorrectHash() && this.lastHash == prevHash && this.transactions.every(t => { t.isValid() })
+        return this.isGenesis() || this.isCorrectHash() && this.lastHash == prevHash && this.transaction.isValid()
     }
 
     hash() {
@@ -156,29 +155,46 @@ class Block {
     }
 
     isCorrectHash() {
-        return this.hash().slice(0, difficulty) == "0" * difficulty
+        return this.hash().substring(0, difficulty) == "0".repeat(difficulty)
     }
 
     mine() {
-        while (!isCorrectHash()) {
-            this.nonce++
+        this.nonce = 0
+        miningInfo = ""
+        while (!this.isCorrectHash()) {
+            this.nonce += 1;
+            if (this.nonce % 10000 == 1) {
+                miningInfo += "."
+                logState()
+            }
         }
+        this.hash = this.hash()
+        miningInfo += ` ${this.hash.substring(0, 10)}`
     }
 
     toString() {
-        return `>${this.lastHash}|${this.timestamp}|${this.data}|${this.nonce}<`
+        return `>${this.lastHash}|${this.timestamp}|${this.transaction}|${this.nonce}<`
     }
+}
+
+function logState() {
+    process.stdout.cursorTo(0, 0)
+    process.stdout.clearScreenDown()
+    process.stdout.write(`running ${isLocal ? 'locally' : 'remotely'}\n`)
+    process.stdout.write(`[Peers      | ${peers.length}]\n`)
+    if (blockchain)
+        process.stdout.write(`[Blockchain | ${blockchain.blocks.length}]\n`)
+    if (miningInfo)
+        process.stdout.write(miningInfo + '\n')
 }
 
 class Blockchain {
     constructor(data) {
         if (!data) {
             this.blocks = [Block.genesis()]
-            this.pending = []
             return
         }
         this.blocks = Block.parse(data.blocks)
-        this.pending = Transaction.parse(data.pending)
     }
 
     isValid() {
@@ -191,9 +207,20 @@ class Blockchain {
             truth = b.isValid(prevHash)
             prevHash = b.hash()
             return truth
-        }) && this.pending.every(t => {
-            return t.isValid()
         })
+    }
+
+    push(transaction) {
+        if (transaction.isValid()) {
+            let block = new Block({
+                lastHash: this.blocks[this.blocks.length - 1].hash,
+                timestamp: new Date().toISOString(),
+                transaction: transaction,
+            })
+            block.mine()
+            this.blocks.push(block)
+            logState()
+        } else console.log("Not valid")
     }
 }
 
@@ -205,7 +232,6 @@ function addPeer(address) {
         socket: socket,
         attempts: 0,
     })
-    console.log(`${peers ? `Peers: ${peers.length}` : ""} | ${blockchain ? `Blocks: ${blockchain.blocks.length} | Pending: ${blockchain.pending.length}` : "No blockchain"}`)
 }
 
 app.use(express.static(__dirname + '/html'))
@@ -240,14 +266,14 @@ function parseWhisper(whisper) {
     whisper.peers.forEach((remotePeer) => {
         if (isNewPeer(remotePeer)) {
             addPeer(remotePeer)
+            logState()
         }
     })
     if (whisper.blockchain) {
         let otherBC = new Blockchain(whisper.blockchain)
-        if (!blockchain || otherBC.blocks.length > blockchain.blocks.length) {
-            console.log("Copying blockchain")
+        if (otherBC.isValid() && (!blockchain || otherBC.blocks.length > blockchain.blocks.length)) {
             blockchain = otherBC
-            console.log(`${peers ? `Peers: ${peers.length}` : ""} | ${blockchain ? `Blocks: ${blockchain.blocks.length} | Pending: ${blockchain.pending.length}` : "No blockchain"}`)
+            logState()
         }
     }
 }
@@ -293,27 +319,40 @@ server_io.of('/client').on('connection', socket => {
     })
 
     socket.on('login', data => {
-        console.log({
-            user: data.username,
-            pkey: data.public,
-            sig: data.signature
-        })
         if (verify(data)) {
-            socket.emit('login-approved')
-        } else {
-            socket.emit('login-denied')
+            switch (searchBlockchain(data.username, data.public)) {
+                case 2:
+                case 3:
+                    socket.emit('login-approved')
+                    return
+            }
         }
+        socket.emit('login-denied')
+    })
+
+    socket.on('register', data => {
+        if (verify(data) && searchBlockchain(data.username, data.public) == 1) {
+            socket.emit('register-approved')
+            blockchain.push(new Transaction(data))
+            return
+        }
+        socket.emit('register-denied')
     })
 })
 
 function initialize(localPort, local) {
+    isLocal = local
     if (local)
         console.log("starting locally")
 
     try {
         fs.mkdirSync("./_public")
+    } catch (err) { }
+
+    try {
         fs.mkdirSync("./_temp")
     } catch (err) { }
+
     peers = []
 
     if (local) {
@@ -333,7 +372,7 @@ function initialize(localPort, local) {
             if (s.socket.connected) {
                 emitWhisper(s.socket)
             } else {
-                
+
             }
         })
     }, 5000)
