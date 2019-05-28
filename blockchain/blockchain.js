@@ -348,11 +348,11 @@ function initialize(localPort, local) {
     try {
         fs.mkdirSync("./_public")
     } catch (err) { }
-
+/*
     try {
         fs.mkdirSync("./_temp")
     } catch (err) { }
-
+*/
     peers = []
 
     if (local) {

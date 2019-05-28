@@ -30,6 +30,5 @@ function serialize(pair) {
 }
 
 function sign(plaintext, secretKey) {
-    console.dir(secretKey)
     return sjcl.codec.base64.fromBits(secretKey.sign(sjcl.hash.sha256.hash(plaintext)))
 }

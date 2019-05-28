@@ -148,6 +148,33 @@ function switchScreen(screen) {
     }
 }
 
+function typeFromExtension(extension) {
+    switch (extension) {
+        case 'mp3':
+            return 'audio'
+        case 'mp4':
+            return 'video'
+        case 'txt':
+            return 'text'
+        case 'jpg':
+        case 'jpeg':
+        case 'png':
+            return 'image'
+        default:
+            return undefined
+    }
+}
+
+function addFile(name, type) {
+    fileContainer.innerHTML += `<div class='file'>
+    <div>
+        <img draggable="false" src='ico/blackwhite/${type}.png'>
+        <img draggable="false" src='ico/color/${type}.png'>
+    </div>
+    <label>${name}</label>
+</div>`
+}
+
 window.onload = () => {
     socket = io('/client');
 
@@ -177,13 +204,13 @@ window.onload = () => {
         data.filenames.forEach(name => {
             let result = name.match(pattern)
             if (result) {
-                fileContainer.innerHTML += `<div class='file'>
-                <div>
-                    <img draggable="false" src='ico/blackwhite/${result[2]}.png'>
-                    <img draggable="false" src='ico/color/${result[2]}.png'>
-                </div>
-                <label>${result[1]}</label>
-            </div>`
+                let name = result[1]
+                let type = typeFromExtension(result[2])
+                if (type) {
+                    addFile(name, type)
+                }
+            } else {
+                addFile(name, 'folder')
             }
         })
     })
@@ -195,7 +222,6 @@ window.onload = () => {
     })
 
     socket.on('disconnect', () => {
-        console.log("asd")
         updateState({
             socketStatus: false
         })
