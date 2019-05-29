@@ -49,24 +49,40 @@ function getTunnel(port) {
 }
 
 function searchBlockchain(username, public) {
-    if (!blockchain || !blockchain.blocks) return -1
-    let rv = 1
+    if (!blockchain || !blockchain.blocks) return
+    let rv = {
+        userExists: false,
+        correctStoredPublic: false,
+        correctLoginPublic: false,
+        logged: false,
+    }
+
+    blockchain.logged.forEach(user => {
+        if (user.logged && username == user.username) {
+            rv.logged = true
+            rv.correctLoginPublic = user.public == public
+            return
+        }
+    })
+
     blockchain.blocks.slice(1).forEach(block => {
         if (block.transaction.username == username) {
-            rv = block.transaction.public == public ? 3 : 0
-        }
-        if (rv != 1)
+            rv.userExists = true
+            rv.correctStoredPublic = block.transaction.public == public
             return
+        }
     })
 
     return rv
 }
 
-function sign(plaintext, serializedPrivate) {
-    private = new sjcl.ecc.elGamal.secretKey(
+function sign(plaintext, serializedSecret) {
+    let secret = new sjcl.ecc.ecdsa.secretKey(
         sjcl.ecc.curves.c256,
-        sjcl.ecc.curves.c256.field.fromBits(sjcl.codec.base64.toBits(serializedPrivate))
+        sjcl.ecc.curves.c256.field.fromBits(sjcl.codec.base64.toBits(serializedSecret))
     )
+
+    return sjcl.codec.base64.fromBits(secret.sign(sjcl.hash.sha256.hash(plaintext)))
 }
 
 function deserialize(public) {
@@ -169,7 +185,7 @@ class Block {
             }
         }
         this.hash = this.hash()
-        miningInfo += ` ${this.hash.substring(0, 10)}`
+        miningInfo += ` ${this.hash}`
     }
 
     toString() {
@@ -182,19 +198,20 @@ function logState() {
     process.stdout.clearScreenDown()
     process.stdout.write(`running ${isLocal ? 'locally' : 'remotely'}\n`)
     process.stdout.write(`[Peers      | ${peers.length}]\n`)
-    if (blockchain)
-        process.stdout.write(`[Blockchain | ${blockchain.blocks.length}]\n`)
+
+    if (blockchain) {
+        let logged = 0
+        blockchain.logged.forEach(user => { if (user.logged) logged++ })
+        process.stdout.write(`[Blockchain | ${blockchain.blocks.length} · ${logged}]\n`)
+    }
     if (miningInfo)
         process.stdout.write(miningInfo + '\n')
 }
 
 class Blockchain {
     constructor(data) {
-        if (!data) {
-            this.blocks = [Block.genesis()]
-            return
-        }
-        this.blocks = Block.parse(data.blocks)
+        this.logged = data ? data.logged : []
+        this.blocks = data ? Block.parse(data.blocks) : [Block.genesis()]
     }
 
     isValid() {
@@ -221,6 +238,40 @@ class Blockchain {
             this.blocks.push(block)
             logState()
         } else console.log("Not valid")
+    }
+
+    login(data) {
+        if (this.logged.every(entry => {
+            !entry.logged || data.username != entry.username
+        })) {
+            console.log('1')
+            let index = this.logged.findIndex(entry => {
+                return data.username == entry.username && data.public == entry.public
+            })
+            data.logged = true;
+            if (index != -1) {
+                console.log('2')
+                data.logged = true;
+                this.logged[index] = data
+            }
+            else {
+                console.log('3')
+                this.logged.push(data)
+            }
+            logState()
+        }
+    }
+
+    logout(data) {
+        let index = this.logged.findIndex(entry => {
+            return data.username == entry.username && data.public == entry.public
+        })
+        if (index != -1) {
+            data.logged = false;
+            this.logged[index] = data
+            console.log(this.logged[index])
+            logState()
+        }
     }
 }
 
@@ -271,9 +322,39 @@ function parseWhisper(whisper) {
     })
     if (whisper.blockchain) {
         let otherBC = new Blockchain(whisper.blockchain)
-        if (otherBC.isValid() && (!blockchain || otherBC.blocks.length > blockchain.blocks.length)) {
-            blockchain = otherBC
-            logState()
+        if (otherBC.isValid()) {
+            let logged = blockchain ? blockchain.logged : null
+            if (!blockchain || otherBC.blocks.length > blockchain.blocks.length) {
+                blockchain = otherBC
+                logState()
+            }
+
+            if (logged && logged.length > 0) {
+                let change = false
+                otherBC.logged.forEach(user_r => {
+                    let index = logged.findIndex(user_l => {
+                        return user_r.username == user_l.username
+                    })
+
+                    if (index != -1) {
+                        if (logged[index].public == user_r.public) {
+                            if (new Date(logged[index].timestamp) < new Date(user_r.timestamp)) {
+                                logged[index] = user_r
+                                change = true
+                            }
+                        } else {
+                            console.log("gato x liebre")
+                        }
+                    } else {
+                        logged.push(user_r)
+                        change = true
+                    }
+                })
+                if (change) {
+                    logState()
+                }
+                blockchain.logged = logged
+            }
         }
     }
 }
@@ -313,30 +394,55 @@ server_io.of('/blockchain').on('connection', (socket) => {
     })
 })
 
+function login(socket, data) {
+    if (verify(data)) {
+        let rv = searchBlockchain(data.username, data.public)
+        if (rv && rv.userExists && rv.correctStoredPublic && !rv.logged) {
+            blockchain.login(data)
+            socket.emit('login-approved')
+            return
+        }
+    }
+    socket.emit('login-denied')
+}
+
+function register(socket, data) {
+    if (verify(data)) {
+        let rv = searchBlockchain(data.username, data.public)
+        if (rv && !rv.userExists) {
+            blockchain.push(new Transaction(data))
+            socket.emit('register-approved')
+            login(socket, data)
+            return
+        }
+    }
+    socket.emit('register-denied')
+}
+
+function logout(data) {
+    if (verify(data)) {
+        let rv = searchBlockchain(data.username, data.public)
+        if (rv && rv.userExists && rv.logged && rv.correctLoginPublic) {
+            blockchain.logout(data)
+        }
+    }
+}
+
 server_io.of('/client').on('connection', socket => {
     socket.emit('files', {
         filenames: fs.readdirSync("./_public")
     })
 
     socket.on('login', data => {
-        if (verify(data)) {
-            switch (searchBlockchain(data.username, data.public)) {
-                case 2:
-                case 3:
-                    socket.emit('login-approved')
-                    return
-            }
-        }
-        socket.emit('login-denied')
+        login(socket, data)
     })
 
     socket.on('register', data => {
-        if (verify(data) && searchBlockchain(data.username, data.public) == 1) {
-            socket.emit('register-approved')
-            blockchain.push(new Transaction(data))
-            return
-        }
-        socket.emit('register-denied')
+        register(socket, data)
+    })
+
+    socket.on('logout', data => {
+        logout(data)
     })
 })
 
@@ -348,11 +454,11 @@ function initialize(localPort, local) {
     try {
         fs.mkdirSync("./_public")
     } catch (err) { }
-/*
-    try {
-        fs.mkdirSync("./_temp")
-    } catch (err) { }
-*/
+    /*
+        try {
+            fs.mkdirSync("./_temp")
+        } catch (err) { }
+    */
     peers = []
 
     if (local) {

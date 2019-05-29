@@ -7,31 +7,17 @@ var recieved
 var fileContainer
 var loginResult
 
-var mainDiv, loginDiv
+var mainDiv
+var loginDiv
 
 var loginfo
-var loginfospan
+
+var openpath
+var openfile
 
 const screens = {
     LOGIN: "LOGIN",
     MAIN: "MAIN"
-}
-
-function updateState(data) {
-    if (!data) {
-        return
-    }
-
-    if (data.socketStatus != undefined && data.socketStatus != socketInfo.status) {
-        socketInfo.status = data.socketStatus
-        socketInfo.element.innerText = data.socketStatus ? 'connected' : 'disconnected'
-        socketInfo.element.style.color = data.socketStatus ? 'green' : 'red'
-    }
-
-    if (data.recieved != undefined && data.recieved != 0) {
-        recieved.count += data.recieved
-        recieved.element.innerText = recieved.count
-    }
 }
 
 function cycle(element, timeout) {
@@ -88,7 +74,7 @@ function registerNew() {
             timestamp: timestamp,
             signature: sign(`[${username}][${serialized.public}][${timestamp}]`, pair.secret),
         })
-        loginResult.innerText = "Processing"
+        loginResult.innerText = "analyzing blockchain"
         loginResult.style.color = "grey"
 
         blockButtons()
@@ -124,7 +110,7 @@ function submitLogin() {
             timestamp: timestamp,
             signature: sign(`[${username}][${public}][${timestamp}]`, secret),
         })
-        loginResult.innerText = "Processing"
+        loginResult.innerText = "trying to log in"
         loginResult.style.color = "grey"
     }
 
@@ -140,10 +126,6 @@ function switchScreen(screen) {
         case screens.MAIN:
             mainDiv.style.display = 'flex'
             loginDiv.style.display = 'none'
-
-            loginfospan.innerHTML = `username: ${loginfo.username}<br>
-            public: ${loginfo.public.substring(0, 10)}`
-
             break;
     }
 }
@@ -175,18 +157,19 @@ function addFile(name, type) {
 </div>`
 }
 
+window.addEventListener('beforeunload', event => {
+    let timestamp = new Date().toISOString()
+
+    socket.emit('logout', {
+        username: loginfo.username,
+        public: loginfo.public,
+        timestamp: timestamp,
+        signature: sign(`[${loginfo.username}][${loginfo.public}][${timestamp}]`, deserialize(loginfo.secret))
+    })
+})
+
 window.onload = () => {
     socket = io('/client');
-
-    socketInfo = {
-        element: document.getElementById('socket-status'),
-        status: false,
-    }
-
-    recieved = {
-        element: document.getElementById('packets-recieved'),
-        count: 0
-    }
 
     logs = document.getElementById('logs-p')
     fileContainer = document.getElementById('files')
@@ -195,10 +178,10 @@ window.onload = () => {
     mainDiv = document.getElementById('mainDiv')
     loginfospan = document.getElementById('loginfo')
 
+    openpath = ""
+    openfile = ""
+
     socket.on('files', data => {
-        updateState({
-            recieved: 1
-        })
         fileContainer.innerHTML = ""
         let pattern = /(.+)\.(.+)/
         data.filenames.forEach(name => {
@@ -216,30 +199,22 @@ window.onload = () => {
     })
 
     socket.on('connect', () => {
-        updateState({
-            socketStatus: true
-        })
+
     })
 
     socket.on('disconnect', () => {
-        updateState({
-            socketStatus: false
-        })
+
     })
 
     socket.on('register-approved', () => {
-        loginResult.innerText = "Approved"
+        loginResult.innerText = "Register Approved"
         loginResult.style.color = "green"
 
         savePair(`${loginfo.public}:${loginfo.secret}`, `${loginfo.username}.bin`)
-
-        setTimeout(() => {
-            switchScreen(screens.MAIN)
-        }, 1000);
     })
 
     socket.on('login-approved', () => {
-        loginResult.innerText = "Approved"
+        loginResult.innerText = "Login Approved"
         loginResult.style.color = "green"
 
         setTimeout(() => {
@@ -248,17 +223,12 @@ window.onload = () => {
     })
 
     socket.on('register-denied', () => {
-        loginResult.innerText = "Denied"
+        loginResult.innerText = `register denied`
         loginResult.style.color = "red"
     })
 
     socket.on('login-denied', () => {
-        loginResult.innerText = "Denied"
+        loginResult.innerText = `login denied`
         loginResult.style.color = "red"
-    })
-
-    updateState({
-        socketStatus: socket.connected,
-        recieved: 0
     })
 }
