@@ -49,7 +49,7 @@ h1, h2{
     align-items: center;
 }
 
-#loginDiv{
+#mainDiv{
     display: none
 }
 
@@ -133,8 +133,16 @@ h1, h2{
 }
 
 #openFile {
-    position: absolute;
+    display: none;
 
+    position: absolute;
+    width: 50%;
+    height: 90%;
+    border: 1px solid black;
+
+    background-color: white;
+
+    z-index: 2;
 }
 
 #files{

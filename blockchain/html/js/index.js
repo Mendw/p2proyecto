@@ -15,6 +15,8 @@ var loginfo
 var openpath
 var openfile
 
+var canClick
+
 const screens = {
     LOGIN: "LOGIN",
     MAIN: "MAIN"
@@ -147,14 +149,60 @@ function typeFromExtension(extension) {
     }
 }
 
-function addFile(name, type) {
-    fileContainer.innerHTML += `<div class='file'>
-    <div>
+function parsePath() {
+    if (!openpath) return
+
+    let rv = ""
+    openpath.forEach(folder => {
+        rv += `/${folder}`
+    })
+
+    return rv
+}
+
+function openFile(name, ext) {
+    if (ext) {
+        openfile = `${name}.${ext}`
+        console.log(openfile)
+        socket.emit('get-file', {
+            path: parsePath(),
+            name: openfile,
+        })
+    } else {
+        openpath.push(name)
+        socket.emit('scan-directory', {
+            path: parsePath(),
+        })
+    }
+
+}
+
+function clearFiles() {
+    fileContainer.innerHTML = ""
+}
+
+function addFile(name, ext) {
+    type = ext ? typeFromExtension(ext) : 'folder'
+
+    let file = document.createElement("div")
+    file.className = 'file'
+    file.addEventListener('click', event => {
+        if (canClick) {
+            canClick = false
+            clearFiles()
+            openFile(name, ext)
+            setTimeout(() => {
+                canClick = true
+            }, 1000);
+        }
+    })
+    file.innerHTML = `<div>
         <img draggable="false" src='ico/blackwhite/${type}.png'>
         <img draggable="false" src='ico/color/${type}.png'>
     </div>
-    <label>${name}</label>
-</div>`
+    <label>${name}</label>`
+
+    fileContainer.appendChild(file)
 }
 
 window.addEventListener('beforeunload', event => {
@@ -178,24 +226,29 @@ window.onload = () => {
     mainDiv = document.getElementById('mainDiv')
     loginfospan = document.getElementById('loginfo')
 
-    openpath = ""
+    canClick = true
+    openpath = []
     openfile = ""
 
-    socket.on('files', data => {
+    socket.emit('scan-directory', {
+        path: ""
+    })
+
+    socket.on('directory', data => {
         fileContainer.innerHTML = ""
         let pattern = /(.+)\.(.+)/
         data.filenames.forEach(name => {
             let result = name.match(pattern)
             if (result) {
-                let name = result[1]
-                let type = typeFromExtension(result[2])
-                if (type) {
-                    addFile(name, type)
-                }
+                addFile(result[1], result[2])
             } else {
-                addFile(name, 'folder')
+                addFile(name)
             }
         })
+    })
+
+    socket.on('file', data => {
+        console.dir(data)
     })
 
     socket.on('connect', () => {

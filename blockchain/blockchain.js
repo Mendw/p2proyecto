@@ -429,8 +429,20 @@ function logout(data) {
 }
 
 server_io.of('/client').on('connection', socket => {
-    socket.emit('files', {
-        filenames: fs.readdirSync("./_public")
+    socket.on('scan-directory', data => {
+        console.dir(data)
+        socket.emit('directory', {
+            filenames: fs.readdirSync(`./_public${data.path}`)
+        })
+    })
+
+    socket.on('get-file', data => {
+        console.log("asdjkasghdkas")
+        socket.emit('file', {
+            data: fs.readFileSync(`./_public${data.path}/${data.name}`, {
+                encoding: 'utf8',
+            })
+        })
     })
 
     socket.on('login', data => {
