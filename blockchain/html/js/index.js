@@ -57,6 +57,23 @@ function savePair(data, filename, type = 'application/octet-stream') {
     }
 }
 
+function getAuth() {
+    if (!loginfo
+        || !loginfo.username
+        || !loginfo.public
+        || !loginfo.secret) {
+        return null
+    }
+
+    let timestamp = new Date().toISOString()
+    return {
+        username: loginfo.username,
+        public: loginfo.public,
+        timestamp: timestamp,
+        signature: sign(`[${loginfo.username}][${loginfo.public}][${timestamp}]`, loginfo.secret)
+    }
+}
+
 function registerNew() {
     let username = document.getElementById('username').value
     if (username) {
@@ -65,17 +82,10 @@ function registerNew() {
 
         loginfo = {
             public: serialized.public,
-            secret: serialized.secret,
+            secret: pair.secret,
             username: username
         }
-
-        let timestamp = new Date().toISOString()
-        socket.emit('register', {
-            username: username,
-            public: serialized.public,
-            timestamp: timestamp,
-            signature: sign(`[${username}][${serialized.public}][${timestamp}]`, pair.secret),
-        })
+        socket.emit('register', getAuth())
         loginResult.innerText = "analyzing blockchain"
         loginResult.style.color = "grey"
 
@@ -98,20 +108,11 @@ function submitLogin() {
         let [public, secret] = event.target.result.split(":")
         loginfo = {
             public: public,
-            secret: secret,
+            secret: deserialize(secret),
             username: username
         }
 
-        let timestamp = new Date().toISOString()
-        secret = deserialize(secret)
-
-
-        socket.emit('login', {
-            username: username,
-            public: public,
-            timestamp: timestamp,
-            signature: sign(`[${username}][${public}][${timestamp}]`, secret),
-        })
+        socket.emit('login', getAuth())
         loginResult.innerText = "trying to log in"
         loginResult.style.color = "grey"
     }
@@ -152,9 +153,11 @@ function typeFromExtension(extension) {
 function parsePath() {
     if (!openpath) return
 
-    let rv = ""
+    let rv = ''
     openpath.forEach(folder => {
-        rv += `/${folder}`
+        if (rv != '')
+            rv += '/'
+        rv += `${folder}`
     })
 
     return rv
@@ -163,15 +166,16 @@ function parsePath() {
 function openFile(name, ext) {
     if (ext) {
         openfile = `${name}.${ext}`
-        console.log(openfile)
         socket.emit('get-file', {
             path: parsePath(),
             name: openfile,
+            auth: getAuth()
         })
     } else {
         openpath.push(name)
         socket.emit('scan-directory', {
             path: parsePath(),
+            auth: getAuth()
         })
     }
 
@@ -189,7 +193,7 @@ function addFile(name, ext) {
     file.addEventListener('click', event => {
         if (canClick) {
             canClick = false
-            clearFiles()
+            if (type == 'folder') clearFiles()
             openFile(name, ext)
             setTimeout(() => {
                 canClick = true
@@ -206,14 +210,8 @@ function addFile(name, ext) {
 }
 
 window.addEventListener('beforeunload', event => {
-    let timestamp = new Date().toISOString()
-
-    socket.emit('logout', {
-        username: loginfo.username,
-        public: loginfo.public,
-        timestamp: timestamp,
-        signature: sign(`[${loginfo.username}][${loginfo.public}][${timestamp}]`, deserialize(loginfo.secret))
-    })
+    let auth = getAuth()
+    if (auth) socket.emit('logout', auth)
 })
 
 window.onload = () => {
@@ -230,19 +228,19 @@ window.onload = () => {
     openpath = []
     openfile = ""
 
-    socket.emit('scan-directory', {
-        path: ""
-    })
-
     socket.on('directory', data => {
         fileContainer.innerHTML = ""
         let pattern = /(.+)\.(.+)/
-        data.filenames.forEach(name => {
-            let result = name.match(pattern)
-            if (result) {
-                addFile(result[1], result[2])
+        data.filenames.forEach(pair => {
+            if (pair.type == "folder") {
+                addFile(pair.name)
             } else {
-                addFile(name)
+                let result = pair.name.match(pattern)
+                if (result) {
+                    addFile(result[1], result[2])
+                } else {
+                    throw new Error('No wtf')
+                }
             }
         })
     })
@@ -263,12 +261,21 @@ window.onload = () => {
         loginResult.innerText = "Register Approved"
         loginResult.style.color = "green"
 
-        savePair(`${loginfo.public}:${loginfo.secret}`, `${loginfo.username}.bin`)
+        serialized = serialize({
+            secret: loginfo.secret,
+        })
+
+        savePair(`${loginfo.public}:${serialized.secret}`, `${loginfo.username}.bin`)
     })
 
     socket.on('login-approved', () => {
         loginResult.innerText = "Login Approved"
         loginResult.style.color = "green"
+
+        socket.emit('scan-directory', {
+            path: '',
+            auth: getAuth()
+        })
 
         setTimeout(() => {
             switchScreen(screens.MAIN)

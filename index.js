@@ -1,26 +1,20 @@
 var blockchain = require('./blockchain')
-var utils = require('./utils')
 var args = process.argv.slice(2);
-
 var local = true;
-if (!local) {
-    process.stdin.resume();
-
-    process.on('beforeExit', (code) => {
-        console.log(`closing with code´${code}`)
-        blockchain.close()
-    });
-    process.on('SIGINT', () => {
-        blockchain.close()
-        process.exit()
-    });
-    process.on('uncaughtException', (exception) => {
-        console.dir(exception)
-        blockchain.close()
-        process.exit()
-    });
-}
-
+if (!local) process.stdin.resume();
+process.on('beforeExit', (code) => {
+    console.log(`closing with code´${code}`)
+    blockchain.close(local)
+});
+process.on('SIGINT', () => {
+    blockchain.close(local)
+    process.exit()
+});
+process.on('uncaughtException', (exception) => {
+    console.dir(exception)
+    blockchain.close(local)
+    process.exit()
+});
 let localPort, remotePort
 var start = () => {
     switch (args.length) {

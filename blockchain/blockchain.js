@@ -9,8 +9,12 @@ const server_io = require('socket.io')(http)
 const sjcl = require("./sjcl")
 const fs = require("fs")
 
+const basePath = "./_public"
+
 const difficulty = 4
 var isLocal
+
+var file_info
 
 var peers
 var sockets
@@ -18,7 +22,8 @@ var sockets
 var blockchain
 var tunnel
 
-var miningInfo
+var extraInfo
+
 
 function getTunnel(port) {
     let tunnel = localtunnel(port, {
@@ -93,6 +98,7 @@ function deserialize(public) {
 }
 
 function verify(data) {
+    if (!data) return false
     let signature = sjcl.codec.base64.toBits(data.signature)
     let public = deserialize(data.public)
     let plaintext = `[${data.username}][${data.public}][${data.timestamp}]`
@@ -141,7 +147,8 @@ class Block {
             this.nonce = 0
             return
         } else {
-            this.lastHash = data.lastBlock ? data.lastBlock.hash() : null
+            this.type = data.type
+            this.lastHash = data.lastHash
             this.timestamp = data.timestamp
             this.transaction = data.transaction
             this.nonce = data.nonce
@@ -176,16 +183,16 @@ class Block {
 
     mine() {
         this.nonce = 0
-        miningInfo = ""
+        extraInfo = ""
         while (!this.isCorrectHash()) {
             this.nonce += 1;
             if (this.nonce % 10000 == 1) {
-                miningInfo += "."
+                extraInfo += "."
                 logState()
             }
         }
         this.hash = this.hash()
-        miningInfo += ` ${this.hash}`
+        extraInfo += ` ${this.hash}`
     }
 
     toString() {
@@ -204,8 +211,8 @@ function logState() {
         blockchain.logged.forEach(user => { if (user.logged) logged++ })
         process.stdout.write(`[Blockchain | ${blockchain.blocks.length} · ${logged}]\n`)
     }
-    if (miningInfo)
-        process.stdout.write(miningInfo + '\n')
+    if (extraInfo)
+        process.stdout.write(extraInfo + '\n')
 }
 
 class Blockchain {
@@ -237,25 +244,22 @@ class Blockchain {
             block.mine()
             this.blocks.push(block)
             logState()
-        } else console.log("Not valid")
+        }
     }
 
     login(data) {
         if (this.logged.every(entry => {
             !entry.logged || data.username != entry.username
         })) {
-            console.log('1')
             let index = this.logged.findIndex(entry => {
                 return data.username == entry.username && data.public == entry.public
             })
             data.logged = true;
             if (index != -1) {
-                console.log('2')
                 data.logged = true;
                 this.logged[index] = data
             }
             else {
-                console.log('3')
                 this.logged.push(data)
             }
             logState()
@@ -269,7 +273,6 @@ class Blockchain {
         if (index != -1) {
             data.logged = false;
             this.logged[index] = data
-            console.log(this.logged[index])
             logState()
         }
     }
@@ -284,6 +287,7 @@ function addPeer(address) {
         attempts: 0,
     })
 }
+
 
 app.use(express.static(__dirname + '/html'))
 
@@ -307,6 +311,78 @@ function emitWhisper(socket) {
     })
 }
 
+function consider(path, name, isFolder) {
+    if (isFolder) {
+        if (!file_info.some(file => {
+            if (file.name == name
+                && file.path == path
+                && file.type == "folder")
+                return file.found = true
+        }))
+            file_info.push({
+                name: name,
+                path: path,
+                type: "folder",
+                found: true
+            })
+        return
+    }
+    if (!file_info.some(file => {
+        if (file.name == name
+            && file.path == path
+            && file.type == "file")
+            return file.found = true
+    })) {
+        file_info.push({
+            name: name,
+            path: path,
+            share: "public",
+            type: "file",
+            found: true
+        })
+    }
+}
+
+function explore(path) {
+    let files = fs.readdirSync(`${basePath}${path ? `/${path}` : ''}`, {
+        withFileTypes: true,
+    })
+    files.forEach(dirent => {
+        if (dirent.isDirectory()) {
+            consider(path ? path : '', dirent.name, true)
+            explore(`${path ? `${path}/` : ''}${dirent.name}`)
+        } else if (dirent.isFile()) {
+            consider(path ? path : '', dirent.name)
+        }
+    })
+}
+
+function exploreAll() {
+    fs.readFile('file_info.json', 'utf8', (err, data) => {
+        if (err)
+            return
+        file_info = JSON.parse(data)
+        explore()
+
+        let cleanFiles = []
+        file_info.forEach(file => {
+            if (file.found) {
+                cleanFiles.push({
+                    name: file.name,
+                    path: file.path,
+                    share: file.share,
+                    type: file.type
+                })
+            }
+        })
+        file_info = cleanFiles
+        fs.writeFile('file_info.json', JSON.stringify(file_info), (err) => {
+            if (err)
+                console.dir(err)
+        })
+    })
+}
+
 function isNewPeer(remotePeer) {
     return peers.every(localPeer => {
         return remotePeer != localPeer
@@ -326,6 +402,7 @@ function parseWhisper(whisper) {
             let logged = blockchain ? blockchain.logged : null
             if (!blockchain || otherBC.blocks.length > blockchain.blocks.length) {
                 blockchain = otherBC
+                extraInfo = "Copied a Blockchain"
                 logState()
             }
 
@@ -343,7 +420,7 @@ function parseWhisper(whisper) {
                                 change = true
                             }
                         } else {
-                            console.log("gato x liebre")
+                            //Vainas raras
                         }
                     } else {
                         logged.push(user_r)
@@ -430,19 +507,37 @@ function logout(data) {
 
 server_io.of('/client').on('connection', socket => {
     socket.on('scan-directory', data => {
-        console.dir(data)
-        socket.emit('directory', {
-            filenames: fs.readdirSync(`./_public${data.path}`)
-        })
+        let rv = []
+        if (data.auth && verify(data.auth) && data.path || data.path == '') {
+            file_info.forEach(file => {
+                if (file.path == data.path && (
+                    file.type == "folder" ||
+                    file.share == "public" ||
+                    file.share instanceof Array && file.owner &&
+                    file.owner.username == data.username && file.owner.public == data.public ||
+                    file.share.some(element => {
+                        return element.username == data.username &&
+                            element.public == data.public
+                    })))
+                    rv.push({
+                        name: file.name,
+                        type: file.type,
+                        share: file.share,
+                    })
+            })
+            socket.emit('directory', {
+                filenames: rv
+            })
+        } else {
+            //no es valido
+        }
     })
 
     socket.on('get-file', data => {
-        console.log("asdjkasghdkas")
-        socket.emit('file', {
-            data: fs.readFileSync(`./_public${data.path}/${data.name}`, {
-                encoding: 'utf8',
+        if (data.auth && verify(data.auth))
+            socket.emit('file', {
+                data: fs.readFileSync(`${basePath}${data.path ? `/${data.path}` : ''}/${data.name}`)
             })
-        })
     })
 
     socket.on('login', data => {
@@ -458,20 +553,30 @@ server_io.of('/client').on('connection', socket => {
     })
 })
 
+function parseBlockchain() {
+    try {
+        let bchain = JSON.parse(fs.readFileSync('./blockchain/blockchain.json', 'utf8'))
+        if (bchain) blockchain = new Blockchain(bchain)
+        extraInfo = "Parsed blockchain"
+        logState()
+    } catch (err) {
+
+    }
+}
+
 function initialize(localPort, local) {
     isLocal = local
     if (local)
         console.log("starting locally")
 
     try {
-        fs.mkdirSync("./_public")
+        fs.mkdirSync(basePath)
     } catch (err) { }
-    /*
-        try {
-            fs.mkdirSync("./_temp")
-        } catch (err) { }
-    */
+
     peers = []
+
+    parseBlockchain()
+    exploreAll()
 
     if (local) {
         peers.push(`http://localhost:${localPort}/blockchain`)
@@ -482,7 +587,7 @@ function initialize(localPort, local) {
     sockets = []
 
     http.listen(localPort, function () {
-        console.log(`server started at port ${localPort}`)
+
     })
 
     setInterval(() => {
@@ -511,8 +616,16 @@ function closeTunnel() {
     tunnel.close()
 }
 
+function close(local) {
+    if (!local) closeTunnel
+    if (blockchain) try {
+        blockchain.logged = []
+        fs.writeFileSync('./blockchain/blockchain.json', JSON.stringify(blockchain))
+    } catch (err) { }
+}
+
 module.exports = exports = {
     connect: connect,
     start: start,
-    close: closeTunnel,
+    close: close,
 }
