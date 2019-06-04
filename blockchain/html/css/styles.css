@@ -205,6 +205,20 @@ h1, h2{
 #chat {
     flex: 2;
     border-top: 1px solid black;
+    display: flex;
+    flex-direction: column;
+}
+
+#chat-messages {
+    flex: 16;
+}
+
+#chat-input{
+    flex: 4;
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+    display: flex;
+    flex-direction: row;
 }
 
 .file {
@@ -267,4 +281,14 @@ h1, h2{
 
 .file > div:hover > img:nth-child(2){
     opacity: 1;
+}
+
+input[type="submit"]{
+    flex: 1;
+    background-color: #FF8264;
+    border-left: 1px solid black;
+}
+
+textarea{
+    resize: none;
 }

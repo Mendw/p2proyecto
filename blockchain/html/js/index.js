@@ -1,5 +1,5 @@
 var socket
-var logs
+var chat
 
 var socketInfo
 var recieved
@@ -17,6 +17,19 @@ var openfile
 
 var canClick
 
+var backButton = document.createElement('div')
+backButton.className = 'file'
+backButton.addEventListener('click', event => {
+    clearFiles()
+    if (openpath) openpath.pop()
+    openFile()
+})
+
+backButton.innerHTML = `<div>
+        <img draggable="false" src='ico/blackwhite/back-folder.png'>
+        <img draggable="false" src='ico/color/back-folder.png'>
+    </div>
+    <label>..</label>`
 const screens = {
     LOGIN: "LOGIN",
     MAIN: "MAIN"
@@ -172,7 +185,7 @@ function openFile(name, ext) {
             auth: getAuth()
         })
     } else {
-        openpath.push(name)
+        if (name) openpath.push(name)
         socket.emit('scan-directory', {
             path: parsePath(),
             auth: getAuth()
@@ -216,8 +229,8 @@ window.addEventListener('beforeunload', event => {
 
 window.onload = () => {
     socket = io('/client');
+    chat = io('/chat')
 
-    logs = document.getElementById('logs-p')
     fileContainer = document.getElementById('files')
     loginResult = document.getElementById('login-result')
     loginDiv = document.getElementById('loginDiv')
@@ -231,6 +244,7 @@ window.onload = () => {
     socket.on('directory', data => {
         fileContainer.innerHTML = ""
         let pattern = /(.+)\.(.+)/
+        if (openpath.length > 0) fileContainer.appendChild(backButton)
         data.filenames.forEach(pair => {
             if (pair.type == "folder") {
                 addFile(pair.name)

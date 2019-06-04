@@ -24,7 +24,7 @@
                     <div class='auth-section'>
                         <div class="label-input-pair">
                             <label for="username">username</label>
-                            <input type="text" id="username" />
+                            <input type="text" id="username" autofocus/>
                             <br>
                             <label for="file">key pair</label>
                             <input type="file" id="fileBox" />
@@ -59,7 +59,13 @@
                     </div>
                 </div>
                 <div id="chat">
-                    
+                    <div id="chat-messages">
+
+                    </div>
+                    <div id="chat-input">
+                        <textarea style="flex: 9"></textarea>
+                        <input type="submit" value=">">
+                    </div>
                 </div>
             </div>
         </div>

@@ -289,11 +289,10 @@ function addPeer(address) {
 }
 
 
-app.use(express.static(__dirname + '/html'))
-
-app.get('/', (req, res) => {
+app.get('', (req, res) => {
     res.status(404).send("Sorry, couldn't find that")
 })
+app.use(express.static(__dirname + '/html'))
 
 app.get('/client', function (req, res) {
     let host = req.headers.host
@@ -390,6 +389,7 @@ function isNewPeer(remotePeer) {
 }
 
 function parseWhisper(whisper) {
+    extraInfo += "\n got bc"
     whisper.peers.forEach((remotePeer) => {
         if (isNewPeer(remotePeer)) {
             addPeer(remotePeer)
@@ -617,7 +617,7 @@ function closeTunnel() {
 }
 
 function close(local) {
-    if (!local) closeTunnel
+    if (!local) closeTunnel()
     if (blockchain) try {
         blockchain.logged = []
         fs.writeFileSync('./blockchain/blockchain.json', JSON.stringify(blockchain))

@@ -1,13 +1,20 @@
 var blockchain = require('./blockchain')
 var args = process.argv.slice(2);
 var local = true;
-if (!local) process.stdin.resume();
+
+if(!local) process.stdin.resume();
 process.on('beforeExit', (code) => {
     console.log(`closing with code´${code}`)
     blockchain.close(local)
 });
-process.on('SIGINT', () => {
+process.on('SIGINT', (code) => {
     blockchain.close(local)
+    console.log(code)
+    process.exit()
+});
+process.on('SIGTERM', code => {
+    blockchain.close(local)
+    console.log(code)
     process.exit()
 });
 process.on('uncaughtException', (exception) => {

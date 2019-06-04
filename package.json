@@ -25,8 +25,8 @@
   },
   "homepage": "https://github.com/Mendw/p2proyecto#readme",
   "dependencies": {
-    "express": "^4.17.0",
-    "localtunnel": "^1.9.1",
+    "express": "^4.17.1",
+    "localtunnel": "^1.9.2",
     "socket.io": "^2.2.0"
   },
   "devDependencies": {
