@@ -279,6 +279,7 @@ class Blockchain {
 }
 
 function addPeer(address) {
+    console.log("addedPeer")
     peers.push(address)
     let socket = connectSocket(address)
     sockets.push({
@@ -389,7 +390,6 @@ function isNewPeer(remotePeer) {
 }
 
 function parseWhisper(whisper) {
-    extraInfo += "\n got bc"
     whisper.peers.forEach((remotePeer) => {
         if (isNewPeer(remotePeer)) {
             addPeer(remotePeer)
@@ -431,6 +431,8 @@ function parseWhisper(whisper) {
                     logState()
                 }
                 blockchain.logged = logged
+            } else {
+                blockchain.logged = otherBC.logged
             }
         }
     }
@@ -598,6 +600,7 @@ function initialize(localPort, local) {
 
             }
         })
+        logState()
     }, 5000)
 }
 
