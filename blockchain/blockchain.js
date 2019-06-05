@@ -24,6 +24,9 @@ var tunnel
 
 var extraInfo
 
+var bc_ns = server_io.of('/blockchain')
+var chat_ns = server_io.of('/chat')
+var client_ns = server_io.of('/client')
 
 function getTunnel(port) {
     let tunnel = localtunnel(port, {
@@ -249,7 +252,7 @@ class Blockchain {
 
     login(data) {
         if (this.logged.every(entry => {
-            !entry.logged || data.username != entry.username
+            return !entry.logged || data.username != entry.username
         })) {
             let index = this.logged.findIndex(entry => {
                 return data.username == entry.username && data.public == entry.public
@@ -263,6 +266,9 @@ class Blockchain {
                 this.logged.push(data)
             }
             logState()
+            return true
+        } else {
+            return false
         }
     }
 
@@ -462,7 +468,7 @@ function connectSocket(address) {
     return socket
 }
 
-server_io.of('/blockchain').on('connection', (socket) => {
+bc_ns.on('connection', (socket) => {
     socket.emit('welcome', {
         peers: peers,
         blockchain: blockchain
@@ -476,8 +482,7 @@ server_io.of('/blockchain').on('connection', (socket) => {
 function login(socket, data) {
     if (verify(data)) {
         let rv = searchBlockchain(data.username, data.public)
-        if (rv && rv.userExists && rv.correctStoredPublic && !rv.logged) {
-            blockchain.login(data)
+        if (rv && rv.userExists && rv.correctStoredPublic && !rv.logged && blockchain.login(data)) {
             socket.emit('login-approved')
             return
         }
@@ -506,8 +511,30 @@ function logout(data) {
         }
     }
 }
+welcomes = [
+    "Bienvenido al chat global, preséntate o comparte una historia",
+    "Bienvenido al chat global, ¿cuál es tu color favorito de gato? ",
+    "Bienvenido al chat global, ¿qué tal el clima donde vives?",
+]
+chat_ns.on('connection', socket => {
+    socket.emit('welcome', {
+        message: welcomes[Math.floor(Math.random() * (welcomes.length))]
+    })
 
-server_io.of('/client').on('connection', socket => {
+    socket.on('id', data => {
+        if (data && verify(data))
+            socket.broadcast.emit('new user', {
+                message: data.username,
+            })
+    })
+
+    socket.on('message', data => {
+        if (data && data.auth && verify(data.auth))
+            chat_ns.emit('message', data)
+    })
+})
+
+client_ns.on('connection', socket => {
     socket.on('scan-directory', data => {
         let rv = []
         if (data.auth && verify(data.auth) && data.path || data.path == '') {

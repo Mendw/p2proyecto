@@ -133,6 +133,16 @@ function submitLogin() {
     blockButtons()
 }
 
+function sendMessage() {
+    text = document.getElementById('chat-area').value.trim()
+    if (text && text != '') {
+        chat.emit('message', {
+            message: text,
+            auth: getAuth()
+        })
+    }
+}
+
 function switchScreen(screen) {
     switch (screen) {
         case screens.LOGIN:
@@ -222,25 +232,33 @@ function addFile(name, ext) {
     fileContainer.appendChild(file)
 }
 
+function colorFromPublic(public) {
+    return `#${sjcl.codec.hex.fromBits(sjcl.codec.base64.toBits(public)).substring(0, 6)}`
+}
+
+function addMessage(data) {
+    let message = document.createElement('div')
+    message.className = 'message'
+    message.innerHTML = `${data.auth ? `
+    <div style="color:${colorFromPublic(data.auth.public)}; border-right: 1px solid black; padding: 10px">
+        ${data.auth.username}
+    </div>
+    <p style='padding: 10px; overflow-wrap: break-word;'>
+        ${data.message}
+    </p>` : `
+    <div style='color: #333; padding: 10px; overflow-wrap: break-word;'>
+        ${data.message}
+    </div>`}`
+
+    document.getElementById('chat-messages').appendChild(message)
+}
+
 window.addEventListener('beforeunload', event => {
     let auth = getAuth()
     if (auth) socket.emit('logout', auth)
 })
 
-window.onload = () => {
-    socket = io('/client');
-    chat = io('/chat')
-
-    fileContainer = document.getElementById('files')
-    loginResult = document.getElementById('login-result')
-    loginDiv = document.getElementById('loginDiv')
-    mainDiv = document.getElementById('mainDiv')
-    loginfospan = document.getElementById('loginfo')
-
-    canClick = true
-    openpath = []
-    openfile = ""
-
+function setupSocket(socket) {
     socket.on('directory', data => {
         fileContainer.innerHTML = ""
         let pattern = /(.+)\.(.+)/
@@ -305,4 +323,38 @@ window.onload = () => {
         loginResult.innerText = `login denied`
         loginResult.style.color = "red"
     })
+}
+
+function setupChat(chat) {
+    chat.on('welcome', data => {
+        addMessage(data)
+        chat.emit('id', getAuth())
+    })
+
+    chat.on('new user', data=> {
+        addMessage(data)
+    })
+
+    chat.on('message', data => {
+        console.dir(data)
+        addMessage(data)
+    })
+}
+
+window.onload = () => {
+    socket = io('/client');
+    chat = io('/chat')
+
+    fileContainer = document.getElementById('files')
+    loginResult = document.getElementById('login-result')
+    loginDiv = document.getElementById('loginDiv')
+    mainDiv = document.getElementById('mainDiv')
+    loginfospan = document.getElementById('loginfo')
+
+    canClick = true
+    openpath = []
+    openfile = ""
+
+    setupSocket(socket)
+    setupChat(chat)
 }
