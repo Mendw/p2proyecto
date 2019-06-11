@@ -15,7 +15,6 @@ const fs = require("fs")
 const path = require('path')
 
 const base_path = path.join(__dirname, '..', 'files/public')
-const meta_path = path.join(__dirname, '..', 'files/meta.json')
 
 const state = {
     blockchain: new Blockchain(),
@@ -25,12 +24,8 @@ const state = {
     address: '',
     port: null,
     clients: [],
-    files: [],
-    rooms: {
-        local: [],
-        remote: [],
-    },
-    aliases: [],
+    editing: {},
+    editors: [],
 }
 
 app.use(express.json())
@@ -45,11 +40,15 @@ app.use(express.static(__dirname + '/html'))
 
 app.post('/text/', (req, res) => {
     let body = req.body
-    fs.readFile(`${base_path}${body.path}/${body.filename}`, 'utf-8', (err, data) => {
+    fs.readFile(`${base_path}${body.path}/${body.filename}`, 'utf-8', (err, text) => {
         if (err) {
             res.status(404).send(err)
         } else {
-            res.send(data)
+            state.editing = {
+                name: body.filename,
+                text: text,
+            };
+            res.send(text)
         }
     })
 })
@@ -68,7 +67,7 @@ const recievedMessages = []
 const recievedSearches = []
 
 function getAddress() {
-    return `${state.address}:${state.port}`
+    return `http://${state.address}:${state.port}`
 }
 
 function logState() {
@@ -118,11 +117,22 @@ function pushMessage(text, duration) {
 
 function isNewAdress(address) {
     return state.peers.every(address_ => address_ != address) &&
-        address != `http://${state.address}:${state.port}` &&
+        address != getAddress() &&
         address != `http://localhost:${state.port}`
 }
 
 function parse(data) {
+    if (data.editing && data.editing != {}) {
+        let index = state.editors.findIndex(value => value && value.address == data.address)
+        if (index != -1) {
+            state.editors[index].name = data.editing.name
+        } else {
+            state.editors.push(data.editing)
+        }
+    }
+
+    pushMessage(state.editors)
+
     data.peers.forEach(address => {
         if (isNewAdress(address)) {
             addPeer(address)
@@ -188,35 +198,6 @@ function recieve(message) {
     }
 }
 
-/*
-    CADA ROOM TIENE ESTA ESTRUCTURA:
-    ROOM: {
-        filename: {String}, ·
-        path: {String},     ·
-        name: {String},     ·
-        data: {String},     Guarda los datos del archivo, al final se guarda en disco
-    }
-
-    COMO RESULTADO DE UNA BÚSQUEDA, EL BUSCANTE RECIBE LA DIRECCIÓN DE LA PC QUE TIENE EL ARCHIVO
-    EL BUSCANTE SE DEBE CONECTAR A LA DIRECCIÓN, NAMESPACE: "/edit", ROOM: "roomName"
-*/
-function createRoom(name) {
-    if (state.rooms.local) {
-        state.rooms.local.push({
-            name: name,
-            data: ""
-        })
-    } else {
-        state.rooms.local = [{
-            name: name,
-            data: ""
-        }]
-    }
-}
-
-function parseRemoteRooms(rooms) {
-
-}
 
 function toWhom(message) {
     return state.peers.filter(peer => message.recipients.findIndex(address => address == peer.address) == -1)
@@ -228,36 +209,6 @@ function spread(event, message) {
     newRec.forEach(peer => {
         peer.socket.emit(event, message)
     })
-}
-
-function apply(delta, roomName) {
-
-}
-
-function scan(path, acc) {
-    let folder = fs.readdirSync(path, {
-        withFileTypes: true
-    })
-
-    for (let dirent of folder) {
-        if (dirent.isDirectory()) {
-            scan(`${folder}/${dirent.name}`, acc)
-        } else if (dirent.isFile()) {
-            acc.push({
-                name: dirent.name,
-                path: path,
-            })
-        }
-
-    }
-}
-
-function scanFiles() {
-    let files = []
-    scan(base_path, files)
-
-    fs.writeFileSync(meta_path, JSON.stringify(files), 'utf-8')
-    state.files = files;
 }
 
 /**
@@ -300,11 +251,12 @@ function addPeer(address) {
 
 server_io.of('/remote').on('connection', socket => {
     let addresses = state.peers.map(peer => peer.address)
-    if ((state.address || state.local) && state.port) addresses.push(`http://${state.address}:${state.port}`)
+    if ((state.address || state.local) && state.port) addresses.push(getAddress())
     socket.emit('blockchain', {
         blockchain: state.blockchain,
         peers: addresses,
-        rooms: state.rooms
+        editing: state.editing,
+        address: getAddress()
     })
 
     socket.on('blockchain', blockchain => {
@@ -401,6 +353,10 @@ server_io.of('/local').on('connection', socket => {
         }
     })
 
+    socket.on('get-editors', () => {
+        socket.emit('editors', state.editors)
+    })
+
     stream_io(socket).on('get-file', (stream, data) => {
         fs.createReadStream(`${base_path}${data.path}/${data.filename}`).pipe(stream)
     })
@@ -419,6 +375,10 @@ server_io.of('/local').on('connection', socket => {
     })
 
     socket.on('save-file', data => {
+        let element = state.rooms.local.find(element => element.name = data.name)
+        if (element) {
+            element.data = data.text
+        }
         fs.writeFile(`${base_path}${data.path}/${data.filename}`, data.text, {
             encoding: 'utf-8'
         }, (err) => {
@@ -428,6 +388,20 @@ server_io.of('/local').on('connection', socket => {
         })
     })
 });
+
+server_io.of('/editor').on('connection', socket => {
+    socket.on('gimmie', () => {
+        if (state.editing != {})
+            socket.emit('yeet', {
+                data: state.editing
+            })
+    })
+
+    socket.on('text-change', data => {
+        let delta = data.delta
+        socket.broadcast.emit('text-change', delta)
+    })
+})
 
 function start(localP, remoteP, remoteA) {
     state.port = localP ? localP : 1101
@@ -449,12 +423,13 @@ function start(localP, remoteP, remoteA) {
 
         setInterval(() => {
             let addresses = state.peers.map(peer => peer.address)
-            if ((state.address || state.local) && state.port) addresses.push(`http://${state.address}:${state.port}`)
+            if ((state.address || state.local) && state.port) addresses.push(getAddress())
             state.peers.forEach(peer => {
                 peer.socket.emit('blockchain', {
                     blockchain: state.blockchain,
                     peers: addresses,
-                    rooms: state.rooms
+                    rooms: state.rooms,
+                    address: getAddress()
                 })
             })
             logState()

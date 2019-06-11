@@ -284,8 +284,19 @@ function openFile(name, type) {
 
                     document.getElementById('save-button').style.visibility = 'visible'
 
+                    let editSocket = io('/edit')
+
+                    editSocket.on('text-change', data => {
+                        delta.insert()
+                            quill.updateContents(delta)
+                    })
+
                     quill.on('text-change', (delta, oldDelta, source) => {
-                        socket.emit('delta')
+                        if (source == "user")
+                            socket.emit('delta', {
+                                delta: delta,
+                                auth: getAuth()
+                            })
                     })
                 }).catch(err => console.error(err))
             })()
@@ -433,4 +444,6 @@ window.onload = () => {
     openfile = ""
 
     setupSocket(socket)
+
+
 }
