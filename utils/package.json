@@ -1,5 +1,0 @@
-{
-    "name": "utilities",
-    "description": "Helper functions and constants",
-    "main": "./utils.js"
-}

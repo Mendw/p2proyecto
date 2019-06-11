@@ -1,60 +1,27 @@
-var blockchain = require('./blockchain')
-var args = process.argv.slice(2);
-var local = true;
+const server = require('./code/server')
+const args = process.argv.slice(2);
 
-if(!local) process.stdin.resume();
-process.on('beforeExit', (code) => {
-    console.log(`closing with code´${code}`)
-    blockchain.close(local)
+let events = ['beforeExit', 'SIGINT', 'SIGTERM', 'uncaughtException']
+events.forEach(event => {
+    process.on(event, code => {
+        console.dir(code)
+        server.close()
+        if (event != 'beforeExit') process.exit()
+    })
 });
-process.on('SIGINT', (code) => {
-    blockchain.close(local)
-    console.log(code)
-    process.exit()
-});
-process.on('SIGTERM', code => {
-    blockchain.close(local)
-    console.log(code)
-    process.exit()
-});
-process.on('uncaughtException', (exception) => {
-    console.dir(exception)
-    blockchain.close(local)
-    process.exit()
-});
-let localPort, remotePort
-var start = () => {
+
+(() => {
     switch (args.length) {
         case 1:
-            localPort = parseInt(args[0])
-            if (localPort != NaN) {
-                blockchain.start(localPort, local)
-            }
-            else {
-                console.log("Invalid args")
-                process.exit();
-            }
+            server.start(parseInt(args[0]))
             break
         case 2:
-            localPort = parseInt(args[0])
-            remotePort = parseInt(args[1])
-            if (remotePort != NaN) {
-                return blockchain.connect(localPort, local ? `http://localhost:${remotePort}` : `http://dml-p2p-${localPort}.localtunnel.me`, local)
-            }
-
-            if (localPort != NaN) {
-                blockchain.connect(localPort, args[1], local)
-            }
-
-            else {
-                console.log("Invalid args")
-                process.exit();
-            }
-            break;
+            server.start(parseInt(args[0]), parseInt(args[1]))
+            break
+        case 3:
+            server.start(parseInt(args[0]), parseInt(args[1]), args[2])
+            break
         default:
-            process.exit()
-            break;
+            break
     }
-}
-
-start()
+})()

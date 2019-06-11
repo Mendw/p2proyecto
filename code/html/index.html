@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>P2P Client</title>
+    <meta name="description" content="Página principal de la app de proyectos distribuidos">
+    <meta name="author" content="José Mendoza">
+    <link rel="stylesheet" type="text/css" href="css/styles.css?v=1.0">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+</head>
+
+<body>
+    <div id="top">
+        <button id="back-button" style="flex: 1; height: 100%; ;" onclick="
+        (()=>{
+            clearFiles()
+            if (openpath) openpath.pop()
+            openFile(null, 'folder')
+        })()
+            "> Atrás </button>
+        <h2 style="flex: 8; text-align: center">Cliente P2P</h2><span style="flex: 1"></span>
+    </div>
+    <div id="middle">
+        <div id="loginDiv">
+            <div id="login">
+                <div id="login-title">
+                    <h1>ingreso</h1>
+                </div>
+                <div id="auth">
+                    <div class='auth-section'>
+                        <div class="label-input-pair">
+                            <label for="username">username</label>
+                            <input type="text" id="username" autofocus />
+                            <br>
+                            <label for="file">key pair</label>
+                            <input type="file" id="fileBox" />
+                            <br>
+                            <label id="login-result"></label>
+                        </div>
+                        <div class="label-input-pair">
+                            <button class="button" style="width: 50%" onclick="submitLogin()">Enviar</button>
+                            <button class="button" style="width: 50%" onclick="registerNew()">Register</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="mainDiv">
+            <div id="controlPanel">
+                <div id="files">
+
+                </div>
+                <div id="openFile">
+
+                </div>
+            </div>
+            <div id="sidebar">
+                <div id="search">
+                    <div id="search-top">
+                        <input type="search" id="search-bar">
+                        <input type="submit" id="search-button" value="&#x1F50E" onclick="search()">
+                    </div>
+                    <div id="search-results">
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                        <p>asd</p>
+                    </div>
+                </div>
+                <div id="chat">
+                    <div id="chat-messages">
+
+                    </div>
+                    <div id="chat-input">
+                        <textarea style="flex: 9" id="chat-area"></textarea>
+                        <input type="submit" value=">" onclick="sendMessage()">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/sjcl.js"></script>
+    <script src="js/crypto.js"></script>
+    <script src="js/index.js"></script>
+</body>
+
+</html>

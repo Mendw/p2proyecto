@@ -1,5 +1,0 @@
-{
-    "name": "blockchain",
-    "description": "Simple blockchain implementation for tracking user accounts",
-    "main": "blockchain.js"
-}
