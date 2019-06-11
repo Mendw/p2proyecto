@@ -209,6 +209,16 @@ h1, h2{
 
     overflow: auto;
 }
+
+#search-results>*:nth-child(even){
+    background-color: #222;
+    color: white;
+}
+
+#search-results>*:nth-child(odd){
+    background-color: #555;
+}
+
 #chat {
     height: 70%;
     max-width: 100%;

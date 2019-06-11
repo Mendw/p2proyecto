@@ -272,9 +272,7 @@ function openFile(name, type) {
                         'Content-Type': 'application/json'
                     }
                 }).then(res => res.text()).then(text => {
-                    let parragraph = document.createElement('p')
-                    parragraph.innerText = text
-                    editor.appendChild(parragraph)
+                    editor.innerHTML = text
 
                     fileContainer.appendChild(editor)
 
@@ -287,13 +285,22 @@ function openFile(name, type) {
                     let editSocket = io('/edit')
 
                     editSocket.on('text-change', data => {
-                        delta.insert()
-                            quill.updateContents(delta)
+                        data.delta.ops.forEach(op => {
+                            if (op.insert) {
+                                console.dir("asjldaskd")
+                                if (!op.attributes) {
+                                    op.attributes = {color: colorFromPublic(data.auth.public)}
+                                } else {
+                                    op.attributes.color = colorFromPublic(data.auth.public)
+                                }
+                            }
+                        })
+                        quill.updateContents(data.delta)
                     })
 
                     quill.on('text-change', (delta, oldDelta, source) => {
                         if (source == "user")
-                            socket.emit('delta', {
+                            editSocket.emit('text-change', {
                                 delta: delta,
                                 auth: getAuth()
                             })
@@ -357,7 +364,70 @@ window.addEventListener('beforeunload', event => {
 })
 
 function clearRooms() {
+    document.getElementById('search-results').innerHTML = ''
+}
 
+function addRoom(room) {
+    let rum = document.createElement('button')
+    rum.style.flex = 1
+    rum.style.height = '50px'
+    rum.innerText = room.name
+    rum.style.verticalAlign = 'center'
+    rum.style.textAlign = 'center'
+    rum.style.lineHeight = '50px'
+
+    rum.addEventListener('click', () => {
+        console.dir(room.address)
+        let editSocket = io(`${room.address}/edit`)
+
+        editSocket.on('connect', () => {
+            editSocket.emit('gimmie')
+        })
+
+        editSocket.on('yeet', data => {
+            clearFiles()
+
+            let editor = document.createElement('div')
+            editor.setAttribute('id', 'editor')
+            editor.style.width = fileContainer.offsetWidth + "px"
+            editor.style.height = fileContainer.offsetHeight + "px";
+
+            editor.innerHTML = data.data.text
+            console.dir(data)
+
+            fileContainer.appendChild(editor)
+
+            quill = new Quill('#editor', {
+                theme: 'snow'
+            })
+
+            quill.on('text-change', (delta, oldDelta, source) => {
+                if (source == "user") {
+                    editSocket.emit('text-change', {
+                        delta: delta,
+                        auth: getAuth()
+                    })
+                }
+            })
+        })
+
+        editSocket.on('text-change', data => {
+            data.delta.ops.forEach(op => {
+                if (op.insert) {
+                    console.dir("asjldaskd")
+                    if (!op.attributes) {
+                        op.attributes = {color: colorFromPublic(data.auth.public)}
+                    } else {
+                        op.attributes.color = colorFromPublic(data.auth.public)
+                    }
+                }
+                console.log(op)
+            })
+            quill.updateContents(data.delta)
+        })
+    })
+
+    document.getElementById('search-results').appendChild(rum)
 }
 
 function setupSocket(socket) {
@@ -387,7 +457,6 @@ function setupSocket(socket) {
 
     socket.on('welcome', data => {
         addMessage(data)
-        console.dir(socket)
     })
 
     socket.on('message', data => {

@@ -15,6 +15,7 @@ const fs = require("fs")
 const path = require('path')
 
 const base_path = path.join(__dirname, '..', 'files/public')
+const chain_path = path.join(__dirname, '..', 'files/blockchain.json')
 
 const state = {
     blockchain: new Blockchain(),
@@ -24,7 +25,7 @@ const state = {
     address: '',
     port: null,
     clients: [],
-    editing: {},
+    editing: false,
     editors: [],
 }
 
@@ -121,17 +122,31 @@ function isNewAdress(address) {
         address != `http://localhost:${state.port}`
 }
 
+function saveBlockchain() {
+    fs.writeFile(chain_path, JSON.stringify(state.blockchain.blocks), (err) => {
+        if (err)
+            pushMessage(err)
+    })
+}
+
 function parse(data) {
-    if (data.editing && data.editing != {}) {
+    if (data.editing && data.editing.name) {
         let index = state.editors.findIndex(value => value && value.address == data.address)
         if (index != -1) {
             state.editors[index].name = data.editing.name
         } else {
-            state.editors.push(data.editing)
+            pushMessage({
+                address: data.address,
+                name: data.editing.name,
+                text: data.editing.text
+            })
+            state.editors.push({
+                address: data.address,
+                name: data.editing.name,
+                text: data.editing.text
+            })
         }
     }
-
-    pushMessage(state.editors)
 
     data.peers.forEach(address => {
         if (isNewAdress(address)) {
@@ -146,6 +161,7 @@ function parse(data) {
             if (!state.blockchain || blockchain.blocks.length > state.blockchain.blocks.length) {
                 state.blockchain = blockchain
                 pushMessage("Copied blockchain")
+                saveBlockchain()
             } else;
 
             if (logged && logged.length > 0) {
@@ -212,13 +228,10 @@ function spread(event, message) {
 }
 
 /**
- * 
  * @param {String} address 
  */
 function remoteSocket(address) {
     let socket = client_io(`${address}/remote`)
-
-    pushMessage(address)
 
     socket.on('connect', () => {
         pushMessage(`now connected to ${address}`)
@@ -287,6 +300,7 @@ function register(socket, data) {
         let rv = state.blockchain.search(data)
         if (rv && !rv.userExists) {
             state.blockchain.push(data)
+            saveBlockchain()
             socket.emit('register-approved')
             logState()
             login(socket, data)
@@ -375,10 +389,6 @@ server_io.of('/local').on('connection', socket => {
     })
 
     socket.on('save-file', data => {
-        let element = state.rooms.local.find(element => element.name = data.name)
-        if (element) {
-            element.data = data.text
-        }
         fs.writeFile(`${base_path}${data.path}/${data.filename}`, data.text, {
             encoding: 'utf-8'
         }, (err) => {
@@ -389,7 +399,7 @@ server_io.of('/local').on('connection', socket => {
     })
 });
 
-server_io.of('/editor').on('connection', socket => {
+server_io.of('/edit').on('connection', socket => {
     socket.on('gimmie', () => {
         if (state.editing != {})
             socket.emit('yeet', {
@@ -398,8 +408,7 @@ server_io.of('/editor').on('connection', socket => {
     })
 
     socket.on('text-change', data => {
-        let delta = data.delta
-        socket.broadcast.emit('text-change', delta)
+        socket.broadcast.emit('text-change', data)
     })
 })
 
@@ -424,11 +433,12 @@ function start(localP, remoteP, remoteA) {
         setInterval(() => {
             let addresses = state.peers.map(peer => peer.address)
             if ((state.address || state.local) && state.port) addresses.push(getAddress())
+            server_io.of('/local').emit('rooms', state.editors)
             state.peers.forEach(peer => {
                 peer.socket.emit('blockchain', {
                     blockchain: state.blockchain,
                     peers: addresses,
-                    rooms: state.rooms,
+                    editing: state.editing,
                     address: getAddress()
                 })
             })
