@@ -190,6 +190,7 @@ function parsePath() {
 
 function openFile(name, type) {
     let url, media, source
+    openfile = name
     switch (type) {
         case 'folder':
             if (name) openpath.push(name)
@@ -235,8 +236,6 @@ function openFile(name, type) {
             media.addEventListener('canplay', () => {
                 media.width = fileContainer.offsetWidth
                 media.height = fileContainer.offsetHeight
-
-                console.dir(fileContainer)
             })
 
             break
@@ -283,8 +282,10 @@ function openFile(name, type) {
                         theme: 'snow'
                     })
 
+                    document.getElementById('save-button').style.visibility = 'visible'
+
                     quill.on('text-change', (delta, oldDelta, source) => {
-                        socket.emit('delta', )
+                        socket.emit('delta')
                     })
                 }).catch(err => console.error(err))
             })()
@@ -344,12 +345,14 @@ window.addEventListener('beforeunload', event => {
     if (auth) socket.emit('logout', auth)
 })
 
+function clearRooms() {
+
+}
+
 function setupSocket(socket) {
     socket.on('directory', data => {
-        console.dir(data)
         fileContainer.innerHTML = ""
         let pattern = /(.+)\.(.+)/
-        //if (openpath.length > 0) fileContainer.appendChild(backButton)
         data.forEach(pair => {
             if (pair.type == "folder") {
                 addFile(pair.name, 'folder')
@@ -364,8 +367,16 @@ function setupSocket(socket) {
         })
     })
 
+    socket.on('rooms', data => {
+        clearRooms()
+        data.forEach(room => {
+            addRoom(room)
+        })
+    })
+
     socket.on('welcome', data => {
         addMessage(data)
+        console.dir(socket)
     })
 
     socket.on('message', data => {

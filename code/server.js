@@ -45,7 +45,13 @@ app.use(express.static(__dirname + '/html'))
 
 app.post('/text/', (req, res) => {
     let body = req.body
-    
+    fs.readFile(`${base_path}${body.path}/${body.filename}`, 'utf-8', (err, data) => {
+        if (err) {
+            res.status(404).send(err)
+        } else {
+            res.send(data)
+        }
+    })
 })
 
 app.get('/:type?*', (req, res) => {
@@ -112,12 +118,11 @@ function pushMessage(text, duration) {
 
 function isNewAdress(address) {
     return state.peers.every(address_ => address_ != address) &&
-        address != `${state.address}:${state.port}` &&
+        address != `http://${state.address}:${state.port}` &&
         address != `http://localhost:${state.port}`
 }
 
 function parse(data) {
-    pushMessage(data.rooms)
     data.peers.forEach(address => {
         if (isNewAdress(address)) {
             addPeer(address)
@@ -220,7 +225,6 @@ function toWhom(message) {
 function spread(event, message) {
     let newRec = toWhom(message)
     newRec.map(peer => peer.address).forEach(address => message.recipients.push(address))
-    //message.recipients.push()
     newRec.forEach(peer => {
         peer.socket.emit(event, message)
     })
@@ -258,29 +262,15 @@ function scanFiles() {
 
 /**
  * 
- * @param {{query: {String}, recipients: {String}[]}} search 
- * @returns {String}
+ * @param {String} address 
  */
-function perform(search) {
-    let re = new RegExp(`^${query.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}`)
-    scanFiles()
-
-    let result = []
-    state.files.forEach(file => {
-        if (re.test(file.name)) {
-            file.address = state.address
-
-            let link = client_io(search.address + "/response")
-
-        }
-    })
-}
-
 function remoteSocket(address) {
     let socket = client_io(`${address}/remote`)
 
-    socket.on('connection', () => {
-        pushMessage('Connected to a peer')
+    pushMessage(address)
+
+    socket.on('connect', () => {
+        pushMessage(`now connected to ${address}`)
     })
 
     socket.on('blockchain', data => {
@@ -310,7 +300,7 @@ function addPeer(address) {
 
 server_io.of('/remote').on('connection', socket => {
     let addresses = state.peers.map(peer => peer.address)
-    if ((state.address || state.local) && state.port) addresses.push(`${state.local ? `http://localhost` : state.address}:${state.port}`)
+    if ((state.address || state.local) && state.port) addresses.push(`http://${state.address}:${state.port}`)
     socket.emit('blockchain', {
         blockchain: state.blockchain,
         peers: addresses,
@@ -427,6 +417,16 @@ server_io.of('/local').on('connection', socket => {
         state.clients.filter(client => client.id != socket.id)
         logout(data)
     })
+
+    socket.on('save-file', data => {
+        fs.writeFile(`${base_path}${data.path}/${data.filename}`, data.text, {
+            encoding: 'utf-8'
+        }, (err) => {
+            if (err) {
+                pushMessage("Nope")
+            }
+        })
+    })
 });
 
 function start(localP, remoteP, remoteA) {
@@ -436,20 +436,20 @@ function start(localP, remoteP, remoteA) {
     });
 
     (async () => {
-        state.address = await fetch('https://api.ipify.org').then(response => response.text())
+        state.address = await fetch('https://api.ipify.org').then(response => response.text()).catch(err => pushMessage(err))
         logState()
 
         if (remoteP) {
             if (remoteA) {
-                addPeer(`${remoteA}:${remoteP}`)
+                addPeer(`http://${remoteA}:${remoteP}`)
             } else {
-                addPeer(`http://localhost:${remoteP}`)
+                addPeer(`http://${state.address}:${remoteP}`)
             }
         }
 
         setInterval(() => {
             let addresses = state.peers.map(peer => peer.address)
-            if ((state.address || state.local) && state.port) addresses.push(`${state.local ? `http://localhost` : state.address}:${state.port}`)
+            if ((state.address || state.local) && state.port) addresses.push(`http://${state.address}:${state.port}`)
             state.peers.forEach(peer => {
                 peer.socket.emit('blockchain', {
                     blockchain: state.blockchain,

@@ -13,14 +13,23 @@
 
 <body>
     <div id="top">
-        <button id="back-button" style="flex: 1; height: 100%; ;" onclick="
+        <button id="back-button" onclick="
         (()=>{
             clearFiles()
             if (openpath) openpath.pop()
             openFile(null, 'folder')
         })()
             "> Atrás </button>
-        <h2 style="flex: 8; text-align: center">Cliente P2P</h2><span style="flex: 1"></span>
+        <h2 style="flex: 8; text-align: center">Cliente P2P</h2>
+        <button id="save-button" onclick="
+        (()=>{
+            let html = quill.root.innerHTML
+            socket.emit('save-file', {
+                filename: openfile,
+                path: parsePath(),
+                text: html,
+            })
+        })()">Guardar</button>
     </div>
     <div id="middle">
         <div id="loginDiv">
@@ -63,34 +72,7 @@
                         <input type="submit" id="search-button" value="&#x1F50E" onclick="search()">
                     </div>
                     <div id="search-results">
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
-                        <p>asd</p>
+
                     </div>
                 </div>
                 <div id="chat">
